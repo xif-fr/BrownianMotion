@@ -6,7 +6,7 @@ double rand01 ();
 #define Inf std::numeric_limits<double>::infinity()
 #define NaN std::numeric_limits<double>::signaling_NaN()
 #include <inttypes.h>
-#include <xifutils/maths/vecs2.hpp>
+#include "vecs2.hpp"
 #include <vector>
 #include <map>
 #include <pthread.h>

@@ -3,12 +3,12 @@ LD_FLAGS := -flto -lsfml-graphics -lsfml-window -lsfml-system -lm -lfmt -fPIC
 
 brownian-motion-pysimul:
 	echo "Compiling simulation core..."
-	g++ $(CXX_FLAGS) main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) -shared -o libpysimul.so
+	clang++ $(CXX_FLAGS) main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) -shared -o libpysimul.so
 	echo "Building CFFI module..."
 	python3 cffi-build.py
 	rm *.o
 	rm pysimul_ffi.c
 
 brownian-motion-standalone:
-	g++ $(CXX_FLAGS) -DMAIN_SOLO main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) -o brownian-motion
+	clang++ $(CXX_FLAGS) -DMAIN_SOLO main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) -o brownian-motion
 	rm *.o

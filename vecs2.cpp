@@ -1,4 +1,4 @@
-#include <xifutils/maths/vecs2.hpp>
+#include "vecs2.hpp"
 #include <cmath>
 #include <cstdlib>
 
