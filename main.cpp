@@ -55,7 +55,7 @@ void* comp_thread (void* _data) {
 	_register_const(_thread, "Delta_t", Δt);
 	#undef KURAEV
 	double cont_k = 0.01;
-	double v₀ = 20;
+	double v₀ = 17;
 	constexpr double m = 1;
 	
 	// Potentiel de Lennard-Jones
