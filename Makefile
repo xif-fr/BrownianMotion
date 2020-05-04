@@ -12,7 +12,7 @@ brownian-motion-pysimul:
 	rm pysimul_ffi.c
 
 brownian-motion-pysimul-headless: LD_FLAGS_SFML = 
-brownian-motion-pysimul-headless: CXX_FLAGS_SFML = 
+brownian-motion-pysimul-headless: CXX_FLAGS_SFML = -DSIMUL_HEADLESS
 brownian-motion-pysimul-headless: brownian-motion-pysimul
 
 brownian-motion-standalone:

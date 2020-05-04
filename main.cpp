@@ -28,13 +28,13 @@ void* comp_thread (void* _data) {
 	
 	::srand((int)::time(nullptr));
 	
-#ifndef SIMUL_HEADLESS
+	#ifndef SIMUL_HEADLESS
 	sf::RenderWindow& win = *_thread.win;
 	sf::Font font;
 	if (not font.loadFromFile(FONT_PATH))
 		return nullptr;
 	win.display();
-#endif
+	#endif
 	
 	double t = 0;
 	_register_var(_thread, "t", &t);
@@ -218,8 +218,8 @@ void* comp_thread (void* _data) {
 					}
 				}
 				_thread.win_evts.pop();
-				#endif
 			}
+			#endif
 			if (_thread.regular_callback)
 				_thread.regular_callback(_thread.id_for_callback, step, t);
 		}
@@ -382,7 +382,7 @@ void* comp_thread (void* _data) {
 				step_last_mes = step;
 			}
 			
-#ifndef SIMUL_HEADLESS
+			#ifndef SIMUL_HEADLESS
 			win.clear(sf::Color::White);
 			
 			sf::CircleShape cont = sf::c01::buildCircleShapeCR(x[N_gas], cont_r);
@@ -415,9 +415,9 @@ void* comp_thread (void* _data) {
 			win.draw(text);
 			
 			win.display();
-#else
+			#else
 			usleep(10);
-#endif
+			#endif
 			::pthread_mutex_lock(&_thread.mutex_global);
 		}
 		
