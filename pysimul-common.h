@@ -13,8 +13,10 @@ double rand01 ();
 #include <queue>
 #include <unistd.h>
 
+#ifndef SIMUL_HEADLESS
 #include <SFML/Graphics.hpp>
 #include "sfml_c01.hpp"
+#endif
 
 extern const size_t pysimul_N;
 
@@ -30,8 +32,10 @@ struct simul_thread_info_t {
 	std::map<std::string, double> vars_pre_init;
 	pthread_mutex_t mutex_global = PTHREAD_MUTEX_INITIALIZER;
 	pthread_t thread_id;
+	#ifndef SIMUL_HEADLESS
 	sf::RenderWindow* win;
 	std::queue<sf::Event> win_evts;
+	#endif
 	uint64_t id_for_callback;
 	std::function<void(uint64_t id, size_t step, double t)> regular_callback;
 	bool do_quit = false;
@@ -68,6 +72,8 @@ template <typename number_t> void _register_const (simul_thread_info_t& _thread,
 }
 template<> void _register_const<double> (simul_thread_info_t& _thread, const char* key, double val);
 
+#ifndef SIMUL_HEADLESS
 void sfml_create_window (simul_thread_info_t* _thread);
 void sfml_event_poll (simul_thread_info_t* _thread);
+#endif
 void* comp_thread (void* _data);

@@ -37,7 +37,9 @@ extern "C" {
 
 pysimul_init_data_t pysimul_init () {
 	simul_thread_info_t* _thread = new simul_thread_info_t;
+	#ifndef SIMUL_HEADLESS
 	sfml_create_window(_thread);
+	#endif
 	_thread->regular_callback = nullptr;
 	_thread->id_for_callback = (uint64_t)_thread;
 	return { _thread, pysimul_N };
@@ -49,7 +51,9 @@ void pysimul_var_preinit (simul_thread_info_t* _thread, const char* key, double 
 
 void pysimul_start (simul_thread_info_t* _thread) {
 	_thread->do_quit = false;
+	#ifndef SIMUL_HEADLESS
 	_thread->win_evts = std::queue<sf::Event>();
+	#endif
 	_thread->vars.clear();
 	::pthread_mutex_lock(&(_thread->mutex_global)); // locked for the thread in advance
 	pthread_attr_t attr;
@@ -63,7 +67,6 @@ void pysimul_mutex_lock (simul_thread_info_t* _thread) {
 }
 
 pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key) {
-	if (not _thread->win) return { .type = -42 };
 	auto it = _thread->vars.find(key);
 	if (it == _thread->vars.end())
 		return { .type = -42 };
@@ -87,7 +90,6 @@ pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key)
 }
 
 void pysimul_set_var_float (struct simul_thread_info_t* _thread, const char* key, double val) {
-	if (not _thread->win) return;
 	auto v = _thread->vars.at(key);
 	if (v.first == simul_thread_info_t::VAR_DOUBLE)
 		*(double*)v.second = val;
@@ -96,7 +98,6 @@ void pysimul_set_var_float (struct simul_thread_info_t* _thread, const char* key
 }
 
 void pysimul_set_var_integer (struct simul_thread_info_t* _thread, const char* key, int64_t val) {
-	if (not _thread->win) return;
 	auto v = _thread->vars.at(key);
 	switch (v.first) {
 		case 0: *(double*)v.second = val; break;
@@ -110,7 +111,6 @@ void pysimul_set_var_integer (struct simul_thread_info_t* _thread, const char* k
 }
 
 void pysimul_set_var_float_in_Narray (simul_thread_info_t* _thread, const char* key, size_t i, double val) {
-	if (not _thread->win) return;
 	if (i >= pysimul_N)
 		throw std::out_of_range("pysimul_set_var_float_in_Narray : out of range");
 	auto v = _thread->vars.at(key);
@@ -121,7 +121,6 @@ void pysimul_set_var_float_in_Narray (simul_thread_info_t* _thread, const char* 
 }
 
 void pysimul_get_var_array (simul_thread_info_t* _thread, const char* key, void* numpy_array_cdata) {
-	if (not _thread->win) return;
 	auto v = _thread->vars.at(key);
 	switch (v.first) {
 		case simul_thread_info_t::VAR_SERIES: {
@@ -142,7 +141,6 @@ void pysimul_get_var_array (simul_thread_info_t* _thread, const char* key, void*
 }
 
 void pysimul_reset_series (simul_thread_info_t* _thread, const char* key) {
-	if (not _thread->win) return;
 	auto v = _thread->vars.at(key);
 	if (v.first == simul_thread_info_t::VAR_SERIES)
 		(*(std::vector<double>*)v.second).empty();
@@ -169,6 +167,7 @@ void pysimul_mutex_unlock (simul_thread_info_t* _thread) {
 }
 
 uint8_t pysimul_event_poll (simul_thread_info_t* _thread) {
+	#ifndef SIMUL_HEADLESS
 	if (_thread->win) {
 		pysimul_mutex_lock(_thread);
 		sfml_event_poll(_thread);
@@ -176,16 +175,22 @@ uint8_t pysimul_event_poll (simul_thread_info_t* _thread) {
 		return 0;
 	} else
 		return 1;
+	#else
+	return 42;
+	#endif
 }
 
 void pysimul_end (simul_thread_info_t* _thread) {
 	_thread->do_quit = true;
 	::pthread_join(_thread->thread_id, nullptr);
+	_thread->vars.clear();
 }
 
 void pysimul_finish (simul_thread_info_t* _thread) {
+	#ifndef SIMUL_HEADLESS
 	_thread->win->close();
 	delete _thread->win;
+	#endif
 	delete _thread;
 }
 

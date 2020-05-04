@@ -5,9 +5,10 @@
 #include <unistd.h>
 #include "pysimul-common.h"
 
-constexpr uint16_t N_gas = 400;
+constexpr uint16_t N_gas = 800;//400;
 const size_t pysimul_N = N_gas;
 
+#ifndef SIMUL_HEADLESS
 void sfml_create_window (simul_thread_info_t* _thread) {
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 4;
@@ -20,17 +21,20 @@ void sfml_event_poll (simul_thread_info_t* _thread) {
 	while (_thread->win->pollEvent(event))
 		_thread->win_evts.push(event);
 }
+#endif
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
 	
 	::srand((int)::time(nullptr));
 	
+#ifndef SIMUL_HEADLESS
 	sf::RenderWindow& win = *_thread.win;
 	sf::Font font;
 	if (not font.loadFromFile(FONT_PATH))
 		return nullptr;
 	win.display();
+#endif
 	
 	double t = 0;
 	_register_var(_thread, "t", &t);
@@ -49,13 +53,13 @@ void* comp_thread (void* _data) {
 	constexpr size_t i_cont = N_gas;   // x[i_cont] is container position
 	constexpr size_t i_part = N_gas+1; // x[i_part] is brownian particule position
 	
-	constexpr double cont_r = 0.48;
+	constexpr double cont_r = 0.6762;//0.48;
 	_register_const(_thread, "cont_r", cont_r);
-	constexpr double Δt = 3e-6, Δt² = Δt*Δt;
+	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;
 	_register_const(_thread, "Delta_t", Δt);
 	#undef KURAEV
 	double cont_k = 0.01;
-	double v₀ = 17;
+	double v₀ = 20;
 	constexpr double m = 1;
 	
 	// Potentiel de Lennard-Jones
@@ -143,7 +147,7 @@ void* comp_thread (void* _data) {
 				return d2;
 			};
 			do {
-				x[i] = { rand01(), rand01() };
+				x[i] = { 2*cont_r*rand01(), 2*cont_r*rand01() };
 			} while (dist2others() < d₀²
 					 or !(x[i]-x[i_cont]) > cont_r*cont_r*0.9
 					 or !(x[i]-x[i_part]) < (d_part+d₀)*(d_part+d₀));
@@ -193,6 +197,7 @@ void* comp_thread (void* _data) {
 	while (not _thread.do_quit) {
 
 		if (step%display_period == 0) {
+			#ifndef SIMUL_HEADLESS
 			while (not _thread.win_evts.empty()) {
 				sf::Event& event = _thread.win_evts.front();
 				if (event.type == sf::Event::Closed)
@@ -213,6 +218,7 @@ void* comp_thread (void* _data) {
 					}
 				}
 				_thread.win_evts.pop();
+				#endif
 			}
 			if (_thread.regular_callback)
 				_thread.regular_callback(_thread.id_for_callback, step, t);
@@ -366,7 +372,6 @@ void* comp_thread (void* _data) {
 		
 		if (step%display_period == 0) {
 			::pthread_mutex_unlock(&_thread.mutex_global);
-			win.clear(sf::Color::White);
 			
 			timeval tv;
 			::gettimeofday(&tv,NULL);
@@ -376,6 +381,9 @@ void* comp_thread (void* _data) {
 				tv_last = tv;
 				step_last_mes = step;
 			}
+			
+#ifndef SIMUL_HEADLESS
+			win.clear(sf::Color::White);
 			
 			sf::CircleShape cont = sf::c01::buildCircleShapeCR(x[N_gas], cont_r);
 			cont.setPointCount(50);
@@ -407,6 +415,9 @@ void* comp_thread (void* _data) {
 			win.draw(text);
 			
 			win.display();
+#else
+			usleep(10);
+#endif
 			::pthread_mutex_lock(&_thread.mutex_global);
 		}
 		
