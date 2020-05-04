@@ -160,6 +160,8 @@ void* comp_thread (void* _data) {
 	// Statistiques
 	
 	constexpr size_t stat_period = 20;
+	uint8_t enable_fine_stats = 0;
+	_register_var(_thread, "enable_fine_stats", &enable_fine_stats);
 	std::vector<double> s_t, s_Ecin, s_Epot, s_T, s_P;
 	_register_var(_thread, "sample_t", &s_t);
 	_register_var(_thread, "Ecin", &s_Ecin); _register_var(_thread, "Epot", &s_Epot);
@@ -186,7 +188,7 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
 	constexpr size_t f_autocor_NΔt = 5000;
 	std::array<double,f_autocor_NΔt> f_autocor_xx, f_autocor_xy, f_autocor_yy;
-	uint64_t f_autocor_samples = 0;
+	uint64_t f_autocor_samples = 0, f_autocor_samples_last = 0;
 	_register_distrib(_thread, "f_autocor_xx", f_autocor_xx, &f_autocor_samples); _register_distrib(_thread, "f_autocor_xy", f_autocor_xy, &f_autocor_samples); _register_distrib(_thread, "f_autocor_yy", f_autocor_yy, &f_autocor_samples);
 	std::deque<vec2_t> f_autocor_hist;
 	
@@ -304,15 +306,17 @@ void* comp_thread (void* _data) {
 		
 		// Statistics
 		
-		f_autocor_hist.push_back( part_m * a[i_part] );
-		if (f_autocor_hist.size() == f_autocor_NΔt) {
-			for (size_t k = 0; k < f_autocor_NΔt; k++) {
-				f_autocor_xx[k] += f_autocor_hist[0].x * f_autocor_hist[k].x;
-				f_autocor_xy[k] += f_autocor_hist[0].x * f_autocor_hist[k].y;
-				f_autocor_yy[k] += f_autocor_hist[0].y * f_autocor_hist[k].y;
+		if (enable_fine_stats) {
+			f_autocor_hist.push_back( part_m * a[i_part] );
+			if (f_autocor_hist.size() == f_autocor_NΔt) {
+				for (size_t k = 0; k < f_autocor_NΔt; k++) {
+					f_autocor_xx[k] += f_autocor_hist[0].x * f_autocor_hist[k].x;
+					f_autocor_xy[k] += f_autocor_hist[0].x * f_autocor_hist[k].y;
+					f_autocor_yy[k] += f_autocor_hist[0].y * f_autocor_hist[k].y;
+				}
+				f_autocor_samples++;
+				f_autocor_hist.pop_front();
 			}
-			f_autocor_samples++;
-			f_autocor_hist.pop_front();
 		}
 		part_f_acc += part_m * a[i_part];
 		part_v_acc += v[i_part];
