@@ -184,7 +184,7 @@ void* comp_thread (void* _data) {
 	std::vector<double> part_fx, part_fy, part_vx, part_vy;
 	_register_var(_thread, "part_fx", &part_fx); _register_var(_thread, "part_fy", &part_fy);
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
-	constexpr size_t f_autocor_NΔt = 1000;
+	constexpr size_t f_autocor_NΔt = 5000;
 	std::array<double,f_autocor_NΔt> f_autocor_xx, f_autocor_xy, f_autocor_yy;
 	uint64_t f_autocor_samples = 0;
 	_register_distrib(_thread, "f_autocor_xx", f_autocor_xx, &f_autocor_samples); _register_distrib(_thread, "f_autocor_xy", f_autocor_xy, &f_autocor_samples); _register_distrib(_thread, "f_autocor_yy", f_autocor_yy, &f_autocor_samples);
@@ -277,7 +277,7 @@ void* comp_thread (void* _data) {
 		// Berendsen thermostat
 		if (target_T > 0 and not s_T.empty()) {
 			double T = s_T.back();
-			constexpr double τ = 5e-2;
+			constexpr double τ = 4e-2;
 			for (uint16_t i = 0; i < N_gas; i++)
 				a⁺[i] -= v[i] /τ * (T/target_T-1);
 		}
