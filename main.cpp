@@ -36,32 +36,6 @@ void* comp_thread (void* _data) {
 	win.display();
 	#endif
 	
-	double t = 0;
-	_register_var(_thread, "t", &t);
-	size_t step = 0;
-	_register_var(_thread, "step", &step);
-	constexpr size_t display_period = 200;
-	timeval tv_last;
-	::gettimeofday(&tv_last,NULL);
-	float step_per_s = 0;
-	size_t step_last_mes = 0;
-	uint8_t pause = 0;
-	_register_var(_thread, "pause", &pause);
-	
-	std::array<pt2_t,N_gas+2> x;
-	std::array<vec2_t,N_gas+2> v, a, a⁻;
-	constexpr size_t i_cont = N_gas;   // x[i_cont] is container position
-	constexpr size_t i_part = N_gas+1; // x[i_part] is brownian particule position
-	
-	constexpr double cont_r = 0.6762;//0.48;
-	_register_const(_thread, "cont_r", cont_r);
-	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;
-	_register_const(_thread, "Delta_t", Δt);
-	#undef KURAEV
-	double cont_k = 0.01;
-	double v₀ = 20;
-	constexpr double m = 1;
-	
 	// Potentiel de Lennard-Jones
 	
 	constexpr double d₀ = 3e-2, d₀² = d₀*d₀, rₐₚₚ² = (4*d₀)*(4*d₀), rlim² = (9*d₀)*(9*d₀);
@@ -118,6 +92,13 @@ void* comp_thread (void* _data) {
 	
 	// Potentiel du conteneur rond
 	
+	constexpr double cont_r = 0.6762;//0.48;
+	_register_const(_thread, "cont_r", cont_r);
+	constexpr double cont_m = 1e10;
+	_register_const(_thread, "cont_m", cont_m);
+	constexpr double cont_k = 0.01;
+	_register_const(_thread, "cont_k", cont_k);
+	
 	auto cont_pot = [&] (double r) -> double {
 		double f = cont_k/(cont_r-r);
 		return cont_k*f*f*f*f*f/5.;
@@ -127,34 +108,6 @@ void* comp_thread (void* _data) {
 		f = f*f*f; f = f*f;
 		vec2_t u = -x/r;
 		return f*u;
-	};
-	constexpr double cont_m = 1e10;
-	constexpr pt2_t part_x0 = pt2_t{0.5,0.5};
-	
-	auto init_particles = [&] () {
-		x[i_part] = part_x0;
-		v[i_part] = a[i_part] = a⁻[i_part] = O⃗;
-		x[i_cont] = pt2_t{0.5,0.5};
-		v[i_cont] = a[i_cont] = a⁻[i_cont] = O⃗;
-		vec2_t v_tot = O⃗;
-		for (size_t i = 0; i < N_gas; i++) {
-			v[i] = (vec2_t)vecO_t{ .r = v₀, .θ = rand01()*2*π };
-			v_tot += v[i];
-			auto dist2others = [&] () {
-				double d2 = Inf;
-				for (size_t j = 0; j < i; j++)
-					d2 = std::min(d2, !(x[i]-x[j]));
-				return d2;
-			};
-			do {
-				x[i] = { 2*cont_r*rand01(), 2*cont_r*rand01() };
-			} while (dist2others() < d₀²
-					 or !(x[i]-x[i_cont]) > cont_r*cont_r*0.9
-					 or !(x[i]-x[i_part]) < (d_part+d₀)*(d_part+d₀));
-			a[i] = a⁻[i] = O⃗;
-		}
-		for (size_t i = 0; i < N_gas; i++)
-			v[i] -= v_tot / N_gas;
 	};
 	
 	// Statistiques
@@ -188,12 +141,70 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
 	constexpr size_t f_autocor_NΔt = 5000;
 	std::array<double,f_autocor_NΔt> f_autocor_xx, f_autocor_xy, f_autocor_yy;
-	uint64_t f_autocor_samples = 0, f_autocor_samples_last = 0;
+	uint64_t f_autocor_samples = 0;
 	_register_distrib(_thread, "f_autocor_xx", f_autocor_xx, &f_autocor_samples); _register_distrib(_thread, "f_autocor_xy", f_autocor_xy, &f_autocor_samples); _register_distrib(_thread, "f_autocor_yy", f_autocor_yy, &f_autocor_samples);
 	std::deque<vec2_t> f_autocor_hist;
 	
-	// Initialisation
+	// Contrôle
 	
+	double t = 0;
+	_register_var(_thread, "t", &t);
+	size_t step = 0;
+	_register_var(_thread, "step", &step);
+	constexpr size_t display_period = 200;
+	timeval tv_last;
+	::gettimeofday(&tv_last,NULL);
+	float step_per_s = 0;
+	size_t step_last_mes = 0;
+	uint8_t pause = 0;
+	_register_var(_thread, "pause", &pause);
+	// Particule release from central well
+	constexpr double release_well_tolerance_center = 1e-4;
+	uint8_t release_well = 0;
+	_register_var(_thread, "release_well", &release_well);
+	double release_well_t = NaN;
+	_register_var(_thread, "release_well_t", &release_well_t);
+	
+	// Particules, intégration et initialisation
+	
+	std::array<pt2_t,N_gas+2> x;
+	std::array<vec2_t,N_gas+2> v, a, a⁻;
+	constexpr size_t i_cont = N_gas;   // x[i_cont] is container position
+	constexpr size_t i_part = N_gas+1; // x[i_part] is brownian particule position
+	
+	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;
+	_register_const(_thread, "Delta_t", Δt);
+	#undef KURAEV
+	
+	constexpr pt2_t part_x0 = pt2_t{0.5,0.5};
+	double v₀ = 20;
+	constexpr double m = 1;
+	
+	auto init_particles = [&] () {
+		x[i_part] = part_x0;
+		v[i_part] = a[i_part] = a⁻[i_part] = O⃗;
+		x[i_cont] = pt2_t{0.5,0.5};
+		v[i_cont] = a[i_cont] = a⁻[i_cont] = O⃗;
+		vec2_t v_tot = O⃗;
+		for (size_t i = 0; i < N_gas; i++) {
+			v[i] = (vec2_t)vecO_t{ .r = v₀, .θ = rand01()*2*π };
+			v_tot += v[i];
+			auto dist2others = [&] () {
+				double d2 = Inf;
+				for (size_t j = 0; j < i; j++)
+					d2 = std::min(d2, !(x[i]-x[j]));
+				return d2;
+			};
+			do {
+				x[i] = { 2*cont_r*rand01(), 2*cont_r*rand01() };
+			} while (dist2others() < d₀²
+					 or !(x[i]-x[i_cont]) > cont_r*cont_r*0.9
+					 or !(x[i]-x[i_part]) < (d_part+d₀)*(d_part+d₀));
+			a[i] = a⁻[i] = O⃗;
+		}
+		for (size_t i = 0; i < N_gas; i++)
+			v[i] -= v_tot / N_gas;
+	};
 	init_particles();
 	
 	while (not _thread.do_quit) {
@@ -370,6 +381,16 @@ void* comp_thread (void* _data) {
 			
 			part_x.push_back(x[i_part].x);
 			part_y.push_back(x[i_part].y);
+		}
+		
+		// Particule release from central well
+		if (release_well) {
+			double r_from_center = (x[i_part]-well_center).r();
+			if (r_from_center < release_well_tolerance_center) {
+				release_well = 0;
+				release_well_t = t + Δt;
+				well_k = 0.;
+			}
 		}
 		
 		/********************************************/
