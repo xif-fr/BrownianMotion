@@ -58,7 +58,7 @@ void* comp_thread (void* _data) {
 	
 	constexpr double d_part = 6e-2; // same d₀
 	constexpr double E₀_lp = 2;
-	constexpr double part_m = 10;
+	constexpr double part_m = 50;
 	_register_const(_thread, "part_m", part_m);
 	_register_const(_thread, "part_d", d_part);
 	
@@ -141,6 +141,7 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
 	constexpr size_t f_autocor_NΔt = 5000;
 	std::array<double,f_autocor_NΔt> f_autocor_xx, f_autocor_xy, f_autocor_yy;
+	f_autocor_xx.fill(0); f_autocor_xy.fill(0); f_autocor_yy.fill(0);
 	uint64_t f_autocor_samples = 0;
 	_register_distrib(_thread, "f_autocor_xx", f_autocor_xx, &f_autocor_samples); _register_distrib(_thread, "f_autocor_xy", f_autocor_xy, &f_autocor_samples); _register_distrib(_thread, "f_autocor_yy", f_autocor_yy, &f_autocor_samples);
 	std::deque<vec2_t> f_autocor_hist;
@@ -159,7 +160,7 @@ void* comp_thread (void* _data) {
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
 	// Particule release from central well
-	constexpr double release_well_tolerance_center = 1e-4;
+	constexpr double release_well_tolerance_center = 3e-4;
 	uint8_t release_well = 0;
 	_register_var(_thread, "release_well", &release_well);
 	double release_well_t = NaN;
