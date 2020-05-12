@@ -111,6 +111,9 @@ void* comp_thread (void* _data) {
 	};
 	
 	// Statistiques
+	#undef STATS_SPEED_DISTRIB
+	#define STATS_FORCE_AUTOCORRELATION
+	#define STATS_POSITION_DISTRIB
 	
 	constexpr size_t stat_period = 20;
 	uint8_t enable_fine_stats = 0;
@@ -124,6 +127,7 @@ void* comp_thread (void* _data) {
 	constexpr double V = π * cont_r*cont_r; // "volume"
 	_register_const(_thread, "V", V);
 	// Speed distribution
+	#ifdef STATS_SPEED_DISTRIB
 	constexpr size_t vdist_Ndv = 200;
 	constexpr double vdist_max = 1e2;
 	std::array<uint64_t,vdist_Ndv> vdist_acc;
@@ -131,10 +135,12 @@ void* comp_thread (void* _data) {
 	uint64_t vdist_samples = 0;
 	_register_distrib(_thread, "vdist", vdist_acc, &vdist_samples);
 	_register_const(_thread, "vdist_max", vdist_max);
+	#endif
 	// Particle position
 	std::vector<double> part_x, part_y;
 	_register_var(_thread, "part_x", &part_x); _register_var(_thread, "part_y", &part_y);
 	// Particle force autocorrelation function & stat_period*Δt-average of speed and force
+	#ifdef STATS_FORCE_AUTOCORRELATION
 	vec2_t part_f_acc = O⃗, part_v_acc = O⃗;
 	std::vector<double> part_fx, part_fy, part_vx, part_vy;
 	_register_var(_thread, "part_fx", &part_fx); _register_var(_thread, "part_fy", &part_fy);
@@ -145,6 +151,18 @@ void* comp_thread (void* _data) {
 	uint64_t f_autocor_samples = 0;
 	_register_distrib(_thread, "f_autocor_xx", f_autocor_xx, &f_autocor_samples); _register_distrib(_thread, "f_autocor_xy", f_autocor_xy, &f_autocor_samples); _register_distrib(_thread, "f_autocor_yy", f_autocor_yy, &f_autocor_samples);
 	std::deque<vec2_t> f_autocor_hist;
+	#endif
+	// Particule position distribution
+	#ifdef STATS_POSITION_DISTRIB
+	constexpr size_t xdist_Ndr = 200;
+	constexpr double xdist_max = 0.5 * cont_r;
+	std::array<uint64_t,2*xdist_Ndr+1> xdist_acc;
+	std::array<uint64_t,xdist_Ndr+1> rdist_acc;
+	xdist_acc.fill(0); rdist_acc.fill(0);
+	uint64_t xdist_samples = 0;
+	_register_distrib(_thread, "xdist", xdist_acc, &xdist_samples); _register_distrib(_thread, "rdist", rdist_acc, &xdist_samples);
+	_register_const(_thread, "xdist_max", xdist_max);
+	#endif
 	
 	// Contrôle
 	
@@ -163,8 +181,8 @@ void* comp_thread (void* _data) {
 	constexpr double release_well_tolerance_center = 3e-4;
 	uint8_t release_well = 0;
 	_register_var(_thread, "release_well", &release_well);
-	double release_well_t = NaN;
-	_register_var(_thread, "release_well_t", &release_well_t);
+	double release_t_well = NaN;
+	_register_var(_thread, "release_well_t", &release_t_well);
 	
 	// Particules, intégration et initialisation
 	
@@ -319,6 +337,7 @@ void* comp_thread (void* _data) {
 		// Statistics
 		
 		if (enable_fine_stats) {
+			#ifdef STATS_FORCE_AUTOCORRELATION
 			f_autocor_hist.push_back( part_m * a[i_part] );
 			if (f_autocor_hist.size() == f_autocor_NΔt) {
 				for (size_t k = 0; k < f_autocor_NΔt; k++) {
@@ -329,19 +348,35 @@ void* comp_thread (void* _data) {
 				f_autocor_samples++;
 				f_autocor_hist.pop_front();
 			}
+			#endif
+			#ifdef STATS_POSITION_DISTRIB
+			constexpr double dx = xdist_max/xdist_Ndr;
+			vec2_t rpos = x[i_part] - well_center;
+			uint64_t x_k = ::lround( rpos.x/ dx );
+			if (-xdist_Ndr <= x_k and x_k <= xdist_Ndr)
+				xdist_acc[ xdist_Ndr + x_k ]++;
+			int64_t x_r = ::lround( rpos.r()/ dx );
+			if (x_r <= xdist_Ndr)
+				rdist_acc[ x_r ]++;
+			xdist_samples++;
+			#endif
 		}
+		#ifdef STATS_FORCE_AUTOCORRELATION
 		part_f_acc += part_m * a[i_part];
 		part_v_acc += v[i_part];
+		#endif
 		
 		if (step%stat_period == 0) {
 			s_t.push_back(t);
 			
+			#ifdef STATS_FORCE_AUTOCORRELATION
 			part_fx.push_back( part_f_acc.x / stat_period );
 			part_fy.push_back( part_f_acc.y / stat_period );
 			part_f_acc = O⃗;
 			part_vx.push_back( part_v_acc.x / stat_period );
 			part_vy.push_back( part_v_acc.y / stat_period );
 			part_v_acc = O⃗;
+			#endif
 			
 			double Epot = 0, Ecin = 0, W = 0;
 			
@@ -372,6 +407,7 @@ void* comp_thread (void* _data) {
 			s_P.push_back(P);
 			s_T.push_back(T);
 			
+			#ifdef STATS_SPEED_DISTRIB
 			constexpr double dv = vdist_max/vdist_Ndv;
 			for (size_t i = 0; i < N_gas; i++) {
 				int64_t k = ::lround( v[i].r() / dv );
@@ -379,6 +415,7 @@ void* comp_thread (void* _data) {
 					vdist_acc[k]++;
 				vdist_samples++;
 			}
+			#endif
 			
 			part_x.push_back(x[i_part].x);
 			part_y.push_back(x[i_part].y);
@@ -389,7 +426,7 @@ void* comp_thread (void* _data) {
 			double r_from_center = (x[i_part]-well_center).r();
 			if (r_from_center < release_well_tolerance_center) {
 				release_well = 0;
-				release_well_t = t + Δt;
+				release_t_well = t + Δt;
 				well_k = 0.;
 			}
 		}
