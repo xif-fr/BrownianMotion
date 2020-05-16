@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include "pysimul-common.h"
 
-constexpr uint16_t N_gas = 800;//400;
+constexpr uint16_t N_gas = 400;//800;
 const size_t pysimul_N = N_gas;
 
 #ifndef SIMUL_HEADLESS
@@ -58,7 +58,7 @@ void* comp_thread (void* _data) {
 	
 	constexpr double d_part = 6e-2; // same d₀
 	constexpr double E₀_lp = 2;
-	constexpr double part_m = 50;
+	constexpr double part_m = 10;//50
 	_register_const(_thread, "part_m", part_m);
 	_register_const(_thread, "part_d", d_part);
 	
@@ -83,7 +83,7 @@ void* comp_thread (void* _data) {
 	
 	auto well_pot = [&] (pt2_t pos_part) -> double {
 		double r² = !(pos_part - well_center);
-		return well_k * r²;
+		return well_k * r² / 2;
 	};
 	auto well_f = [&] (pt2_t pos_part) -> vec2_t {
 		vec2_t rd = well_center - pos_part;
@@ -92,7 +92,7 @@ void* comp_thread (void* _data) {
 	
 	// Potentiel du conteneur rond
 	
-	constexpr double cont_r = 0.6762;//0.48;
+	constexpr double cont_r = 0.48;//0.6762;//0.48;
 	_register_const(_thread, "cont_r", cont_r);
 	constexpr double cont_m = 1e10;
 	_register_const(_thread, "cont_m", cont_m);
@@ -115,7 +115,7 @@ void* comp_thread (void* _data) {
 	#define STATS_FORCE_AUTOCORRELATION
 	#define STATS_POSITION_DISTRIB
 	
-	constexpr size_t stat_period = 20;
+	constexpr size_t stat_period = 50;
 	uint8_t enable_fine_stats = 0;
 	_register_var(_thread, "enable_fine_stats", &enable_fine_stats);
 	std::vector<double> s_t, s_Ecin, s_Epot, s_T, s_P;
@@ -139,6 +139,7 @@ void* comp_thread (void* _data) {
 	// Particle position
 	std::vector<double> part_x, part_y;
 	_register_var(_thread, "part_x", &part_x); _register_var(_thread, "part_y", &part_y);
+	vec2_t part_x_acc = O⃗;
 	// Particle force autocorrelation function & stat_period*Δt-average of speed and force
 	#ifdef STATS_FORCE_AUTOCORRELATION
 	vec2_t part_f_acc = O⃗, part_v_acc = O⃗;
@@ -155,7 +156,7 @@ void* comp_thread (void* _data) {
 	// Particule position distribution
 	#ifdef STATS_POSITION_DISTRIB
 	constexpr size_t xdist_Ndr = 200;
-	constexpr double xdist_max = 0.5 * cont_r;
+	constexpr double xdist_max = 0.04;
 	std::array<uint64_t,2*xdist_Ndr+1> xdist_acc;
 	std::array<uint64_t,xdist_Ndr+1> rdist_acc;
 	xdist_acc.fill(0); rdist_acc.fill(0);
@@ -191,7 +192,7 @@ void* comp_thread (void* _data) {
 	constexpr size_t i_cont = N_gas;   // x[i_cont] is container position
 	constexpr size_t i_part = N_gas+1; // x[i_part] is brownian particule position
 	
-	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;
+	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;//1.5e-5
 	_register_const(_thread, "Delta_t", Δt);
 	#undef KURAEV
 	
@@ -352,10 +353,10 @@ void* comp_thread (void* _data) {
 			#ifdef STATS_POSITION_DISTRIB
 			constexpr double dx = xdist_max/xdist_Ndr;
 			vec2_t rpos = x[i_part] - well_center;
-			uint64_t x_k = ::lround( rpos.x/ dx );
-			if (-xdist_Ndr <= x_k and x_k <= xdist_Ndr)
+			int64_t x_k = ::lround( rpos.x / dx );
+			if (std::abs(x_k) <= xdist_Ndr)
 				xdist_acc[ xdist_Ndr + x_k ]++;
-			int64_t x_r = ::lround( rpos.r()/ dx );
+			uint64_t x_r = ::lround( rpos.r() / dx );
 			if (x_r <= xdist_Ndr)
 				rdist_acc[ x_r ]++;
 			xdist_samples++;
@@ -365,6 +366,7 @@ void* comp_thread (void* _data) {
 		part_f_acc += part_m * a[i_part];
 		part_v_acc += v[i_part];
 		#endif
+		part_x_acc += x[i_part]-pt2_t{0,0};
 		
 		if (step%stat_period == 0) {
 			s_t.push_back(t);
@@ -417,8 +419,11 @@ void* comp_thread (void* _data) {
 			}
 			#endif
 			
-			part_x.push_back(x[i_part].x);
-			part_y.push_back(x[i_part].y);
+			// part_x.push_back(x[i_part].x);	ne pas sous-éch la position, néfaste pour la PSD (repliement)
+			// part_y.push_back(x[i_part].y);
+			part_x.push_back( part_x_acc.x / stat_period );
+			part_y.push_back( part_x_acc.y / stat_period );
+			part_x_acc = O⃗;
 		}
 		
 		// Particule release from central well

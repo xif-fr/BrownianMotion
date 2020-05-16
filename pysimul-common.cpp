@@ -144,7 +144,7 @@ void pysimul_get_var_array (simul_thread_info_t* _thread, const char* key, void*
 void pysimul_reset_series (simul_thread_info_t* _thread, const char* key) {
 	auto v = _thread->vars.at(key);
 	if (v.first == simul_thread_info_t::VAR_SERIES)
-		(*(std::vector<double>*)v.second).empty();
+		(*(std::vector<double>*)v.second).clear();
 	else if (v.first == simul_thread_info_t::VAR_DISTRIB_ACC) {
 		auto& t = *(std::tuple<size_t,simul_thread_info_t::var_type_t,void*,uint64_t*>*)v.second;
 		for (size_t i = 0; i < std::get<0>(t); i++) {
