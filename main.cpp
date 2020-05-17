@@ -1,6 +1,5 @@
 #include <fmt/core.h>
 #include <deque>
-#include <array>
 #include <sys/time.h>
 #include <unistd.h>
 #include "pysimul-common.h"
@@ -12,7 +11,7 @@ const size_t pysimul_N = N_gas;
 void sfml_create_window (simul_thread_info_t* _thread) {
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 4;
-	_thread->win = new sf::RenderWindow (sf::VideoMode(SFMLC01_WINDOW_UNIT,SFMLC01_WINDOW_HEIGHT), "Brownian motion - Gas", sf::Style::Titlebar, settings);
+	_thread->win = new sf::RenderWindow (sf::VideoMode(SFMLC01_WINDOW_UNIT,SFMLC01_WINDOW_HEIGHT), "Brownian motion - LJ Gas", sf::Style::Titlebar, settings);
 	_thread->win->setVerticalSyncEnabled(false);
 	_thread->win->clear(sf::Color::White);
 }
@@ -192,7 +191,7 @@ void* comp_thread (void* _data) {
 	constexpr size_t i_cont = N_gas;   // x[i_cont] is container position
 	constexpr size_t i_part = N_gas+1; // x[i_part] is brownian particule position
 	
-	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;//1.5e-5
+	constexpr double Δt = 1.5e-6, Δt² = Δt*Δt;
 	_register_const(_thread, "Delta_t", Δt);
 	#undef KURAEV
 	

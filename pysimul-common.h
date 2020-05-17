@@ -8,6 +8,7 @@ double rand01 ();
 #include <inttypes.h>
 #include "vecs2.hpp"
 #include <vector>
+#include <array>
 #include <map>
 #include <pthread.h>
 #include <queue>
