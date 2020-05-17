@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include "pysimul-common.h"
 
-constexpr uint16_t N_gas = 400;//800;
+constexpr uint16_t N_gas = 800;
 const size_t pysimul_N = N_gas;
 
 #ifndef SIMUL_HEADLESS
@@ -92,7 +92,7 @@ void* comp_thread (void* _data) {
 	
 	// Potentiel du conteneur rond
 	
-	constexpr double cont_r = 0.48;//0.6762;//0.48;
+	constexpr double cont_r = 0.6762;//0.48;
 	_register_const(_thread, "cont_r", cont_r);
 	constexpr double cont_m = 1e10;
 	_register_const(_thread, "cont_m", cont_m);
