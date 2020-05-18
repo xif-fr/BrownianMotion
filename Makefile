@@ -5,7 +5,7 @@ LD_FLAGS_SFML := -lsfml-graphics -lsfml-window -lsfml-system
 
 brownian-motion-pysimul:
 	echo "Compiling simulation core..."
-	clang++ $(CXX_FLAGS) $(CXX_FLAGS_SFML) main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) $(LD_FLAGS_SFML) -shared -o libpysimul.so
+	clang++ $(CXX_FLAGS) $(CXX_FLAGS_SFML) main.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) $(LD_FLAGS_SFML) -shared -o libpysimul.so
 	echo "Building CFFI module..."
 	python3 cffi-build.py
 	rm *.o
@@ -16,5 +16,5 @@ brownian-motion-pysimul-headless: CXX_FLAGS_SFML = -DSIMUL_HEADLESS
 brownian-motion-pysimul-headless: brownian-motion-pysimul
 
 brownian-motion-standalone:
-	clang++ $(CXX_FLAGS) -DMAIN_SOLO main.cpp pysimul-common.cpp vecs2.cpp $(LD_FLAGS) -o brownian-motion
+	clang++ $(CXX_FLAGS) -DMAIN_SOLO main.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) -o brownian-motion
 	rm *.o
