@@ -28,3 +28,5 @@ void pysimul_reset_series (struct simul_thread_info_t*, const char* key);
 void pysimul_set_var_integer (struct simul_thread_info_t*, const char* key, int64_t val);
 void pysimul_get_var_array (struct simul_thread_info_t*, const char* key, void* numpy_array_cdata);
 uint64_t pysimul_register_regular_callback (struct simul_thread_info_t*, void (*) (uint64_t, size_t, double));
+
+void util_cma (const double* numpy_array_in, double* numpy_array_out, size_t n, uint16_t window);

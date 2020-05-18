@@ -107,3 +107,8 @@ class PySimul:
 		c.pysimul_reset_series(self._handle, key.encode('ascii'))
 		if not self._expl_locked:
 			c.pysimul_mutex_unlock(self._handle)
+
+def cma (X, window):
+	M = np.zeros(len(X))
+	c.util_cma(ffi.cast("double*", X.ctypes.data), ffi.cast("double*", M.ctypes.data), len(X), window)
+	return M

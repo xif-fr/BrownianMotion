@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "pysimul-common.h"
 
-constexpr uint16_t N_gas = 800;
+constexpr uint16_t N_gas = 400;
 const size_t pysimul_N = N_gas;
 
 #ifndef SIMUL_HEADLESS
@@ -57,7 +57,7 @@ void* comp_thread (void* _data) {
 	
 	constexpr double d_part = 6e-2; // same d₀
 	constexpr double E₀_lp = 2;
-	constexpr double part_m = 10;//50
+	constexpr double part_m = 100;
 	_register_const(_thread, "part_m", part_m);
 	_register_const(_thread, "part_d", d_part);
 	
@@ -91,7 +91,7 @@ void* comp_thread (void* _data) {
 	
 	// Potentiel du conteneur rond
 	
-	constexpr double cont_r = 0.6762;//0.48;
+	constexpr double cont_r = 0.48;//0.6762;
 	_register_const(_thread, "cont_r", cont_r);
 	constexpr double cont_m = 1e10;
 	_register_const(_thread, "cont_m", cont_m);
@@ -119,7 +119,11 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "enable_fine_stats", &enable_fine_stats);
 	std::vector<double> s_t, s_Ecin, s_Epot, s_T, s_P;
 	_register_var(_thread, "sample_t", &s_t);
+	// Thermo
+	constexpr double kB = 1;
 	_register_var(_thread, "Ecin", &s_Ecin); _register_var(_thread, "Epot", &s_Epot);
+	double part_T_acc = 0; uint64_t part_T_samples = 0;
+	_register_var(_thread, "part_T", &part_T_acc); _register_var(_thread, "part_T_samples", &part_T_samples);
 	_register_var(_thread, "Temp", &s_T); //_register_var(_thread, "Pvir", &s_P);
 	double target_T = 1.5e2;
 	_register_var(_thread, "target_T", &target_T);
@@ -155,7 +159,7 @@ void* comp_thread (void* _data) {
 	// Particule position distribution
 	#ifdef STATS_POSITION_DISTRIB
 	constexpr size_t xdist_Ndr = 200;
-	constexpr double xdist_max = 0.04;
+	constexpr double xdist_max = 0.08;
 	std::array<uint64_t,2*xdist_Ndr+1> xdist_acc;
 	std::array<uint64_t,xdist_Ndr+1> rdist_acc;
 	xdist_acc.fill(0); rdist_acc.fill(0);
@@ -360,6 +364,8 @@ void* comp_thread (void* _data) {
 				rdist_acc[ x_r ]++;
 			xdist_samples++;
 			#endif
+			part_T_acc += part_m/2 * !(v[i_part]) / kB; //  Ecin / (2 DoF * 1/2 * kB)
+			part_T_samples++;
 		}
 		#ifdef STATS_FORCE_AUTOCORRELATION
 		part_f_acc += part_m * a[i_part];
@@ -399,7 +405,6 @@ void* comp_thread (void* _data) {
 			Ecin += cont_m/2 * !(v[i_cont]);
 			Ecin += part_m/2 * !(v[i_part]);
 			
-			constexpr double kB = 1;
 			double T = 2 * Ecin / (kB * 2*(N_gas+2)); // température par équirépartition (Ecin = Ndof 1/2 kB T, avec Ndof = 2 (N_gas+2))
 			double P = (2*Ecin - W)/(2*V); // pression par théorème du viriel (est-ce correct ????)
 			
@@ -477,7 +482,7 @@ void* comp_thread (void* _data) {
 			auto text = sf::c01::buildText(font, pt2_t{0.01,1-0.01}, {
 				fmt::format(L"Etot={:.5e}, Ecin={:.2e}, Epot={:.2e}", s_Epot.back()+s_Ecin.back(), s_Ecin.back(), s_Epot.back()),
 				fmt::format(L"t={:.2e}, sps={:.1e}", t, step_per_s),
-				fmt::format(L"T={:.2e}, P={:.2e}", s_T.back(), s_P.back()),
+				fmt::format(L"T={:.2e}, part_T={:.2e}", s_T.back(), part_T_acc/part_T_samples),
 			});
 			win.draw(text);
 			

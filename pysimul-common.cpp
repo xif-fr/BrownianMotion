@@ -83,9 +83,9 @@ pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key)
 		case simul_thread_info_t::VAR_SERIES /*-1*/: r.length = (*(std::vector<double>*)it->second.second).size(); break;
 		case simul_thread_info_t::VAR_DOUBLE /*0*/: r.fval = *(double*)it->second.second; break;
 		case 1: r.ival = *(int8_t*)it->second.second; break;
-		case 2: r.fval = *(int16_t*)it->second.second; break;
-		case 4: r.fval = *(int32_t*)it->second.second; break;
-		case 8: r.fval = *(int64_t*)it->second.second; break;
+		case 2: r.ival = *(int16_t*)it->second.second; break;
+		case 4: r.ival = *(int32_t*)it->second.second; break;
+		case 8: r.ival = *(int64_t*)it->second.second; break;
 	}
 	return r;
 }
