@@ -76,7 +76,7 @@ void* comp_thread (void* _data) {
 	
 	// Potentiel harmonique de confinement de la particule
 	
-	double well_k = 1e5;
+	double well_k = 1e4;
 	pt2_t well_center = {0.5, 0.5};
 	_register_var(_thread, "well_k", &well_k); _register_var(_thread, "well_x", &well_center.x); _register_var(_thread, "well_y", &well_center.y);
 	
@@ -111,7 +111,7 @@ void* comp_thread (void* _data) {
 	
 	// Statistiques
 	#undef STATS_SPEED_DISTRIB
-	#define STATS_FORCE_AUTOCORRELATION
+	#undef STATS_FORCE_AUTOCORRELATION
 	#define STATS_POSITION_DISTRIB
 	
 	constexpr size_t stat_period = 50;
@@ -144,11 +144,13 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "part_x", &part_x); _register_var(_thread, "part_y", &part_y);
 	vec2_t part_x_acc = O⃗;
 	// Particle force autocorrelation function & stat_period*Δt-average of speed and force
-	#ifdef STATS_FORCE_AUTOCORRELATION
-	vec2_t part_f_acc = O⃗, part_v_acc = O⃗;
-	std::vector<double> part_fx, part_fy, part_vx, part_vy;
-	_register_var(_thread, "part_fx", &part_fx); _register_var(_thread, "part_fy", &part_fy);
+	vec2_t part_v_acc = O⃗;
+	std::vector<double> part_vx, part_vy;
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
+	#ifdef STATS_FORCE_AUTOCORRELATION
+	vec2_t part_f_acc = O⃗;
+	std::vector<double> part_fx, part_fy;
+	_register_var(_thread, "part_fx", &part_fx); _register_var(_thread, "part_fy", &part_fy);
 	constexpr size_t f_autocor_NΔt = 5000;
 	std::array<double,f_autocor_NΔt> f_autocor_xx, f_autocor_xy, f_autocor_yy;
 	f_autocor_xx.fill(0); f_autocor_xy.fill(0); f_autocor_yy.fill(0);
@@ -369,8 +371,8 @@ void* comp_thread (void* _data) {
 		}
 		#ifdef STATS_FORCE_AUTOCORRELATION
 		part_f_acc += part_m * a[i_part];
-		part_v_acc += v[i_part];
 		#endif
+		part_v_acc += v[i_part];
 		part_x_acc += x[i_part]-pt2_t{0,0};
 		
 		if (step%stat_period == 0) {
@@ -380,10 +382,10 @@ void* comp_thread (void* _data) {
 			part_fx.push_back( part_f_acc.x / stat_period );
 			part_fy.push_back( part_f_acc.y / stat_period );
 			part_f_acc = O⃗;
+			#endif
 			part_vx.push_back( part_v_acc.x / stat_period );
 			part_vy.push_back( part_v_acc.y / stat_period );
 			part_v_acc = O⃗;
-			#endif
 			
 			double Epot = 0, Ecin = 0, W = 0;
 			

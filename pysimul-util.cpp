@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <inttypes.h>
 
 extern "C" {
 	
