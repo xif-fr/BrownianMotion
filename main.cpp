@@ -242,17 +242,10 @@ void* comp_thread (void* _data) {
 					_thread.do_quit = true;
 				if (event.type == sf::Event::KeyPressed) {
 					switch (event.key.code) {
-						case sf::Keyboard::Q:
-							_thread.do_quit = true;
-							break;
-						case sf::Keyboard::R:
-							init_particles();
-							break;
-						case sf::Keyboard::P:
-							pause = !pause;
-							break;
-						default:
-							break;
+						case sf::Keyboard::Q: _thread.do_quit = true; break;
+						case sf::Keyboard::R: init_particles(); break;
+						case sf::Keyboard::P: pause = !pause; break;
+						default: break;
 					}
 				}
 				_thread.win_evts.pop();
@@ -261,7 +254,6 @@ void* comp_thread (void* _data) {
 			if (_thread.regular_callback)
 				_thread.regular_callback(_thread.id_for_callback, step, t);
 		}
-		
 		if (pause) {
 			::pthread_mutex_unlock(&_thread.mutex_global);
 			usleep(10000);
