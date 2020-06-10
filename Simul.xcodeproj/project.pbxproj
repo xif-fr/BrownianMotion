@@ -7,8 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		024337962483CC00007526F0 /* langevin-survival.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0243379224832FE6007526F0 /* langevin-survival.cpp */; };
+		024337972483CC00007526F0 /* pysimul-common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02E72F45244E6C2B002C5174 /* pysimul-common.cpp */; };
+		024337982483CC00007526F0 /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
+		024337992483CC00007526F0 /* pysimul-util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025A822F24727CAC0095EE29 /* pysimul-util.cpp */; };
+		0243379C2483CC00007526F0 /* cffi-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = 02E72F42244E27D1002C5174 /* cffi-proto.h */; };
+		024337A12483CC33007526F0 /* langevin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02AF2A0224713C4B00B73887 /* langevin.cpp */; };
 		025A823124727CE70095EE29 /* pysimul-util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025A822F24727CAC0095EE29 /* pysimul-util.cpp */; };
-		025A8232247498480095EE29 /* langevin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02AF2A0224713C4B00B73887 /* langevin.cpp */; };
 		025A8233247498510095EE29 /* langevin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02AF2A0224713C4B00B73887 /* langevin.cpp */; };
 		027D77EF2428F4AC00785488 /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
 		028FD19824526C47005B4B0A /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
@@ -18,6 +23,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0243379224832FE6007526F0 /* langevin-survival.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "langevin-survival.cpp"; sourceTree = "<group>"; };
+		024337A02483CC00007526F0 /* libpysimul-headless.so */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libpysimul-headless.so"; sourceTree = BUILT_PRODUCTS_DIR; };
 		025A822F24727CAC0095EE29 /* pysimul-util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "pysimul-util.cpp"; sourceTree = "<group>"; };
 		027D77D02428F3CE00785488 /* Simul.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Simul.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		027D77E82428F41100785488 /* Simul-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Simul-Info.plist"; sourceTree = "<group>"; };
@@ -36,6 +43,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0243379A2483CC00007526F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		027D77CC2428F3CE00785488 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -58,6 +72,7 @@
 			children = (
 				027D77E92428F41100785488 /* main.cpp */,
 				02AF2A0224713C4B00B73887 /* langevin.cpp */,
+				0243379224832FE6007526F0 /* langevin-survival.cpp */,
 				02E72F46244E6C2B002C5174 /* pysimul-common.h */,
 				02E72F45244E6C2B002C5174 /* pysimul-common.cpp */,
 				025A822F24727CAC0095EE29 /* pysimul-util.cpp */,
@@ -78,6 +93,7 @@
 			children = (
 				027D77D02428F3CE00785488 /* Simul.app */,
 				02BBCF35244DB061001C76B0 /* libpysimul.so */,
+				024337A02483CC00007526F0 /* libpysimul-headless.so */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -93,6 +109,14 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		0243379B2483CC00007526F0 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0243379C2483CC00007526F0 /* cffi-proto.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		02BBCF33244DB061001C76B0 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -104,6 +128,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		024337942483CC00007526F0 /* pysimul-headless */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0243379D2483CC00007526F0 /* Build configuration list for PBXNativeTarget "pysimul-headless" */;
+			buildPhases = (
+				024337952483CC00007526F0 /* Sources */,
+				0243379A2483CC00007526F0 /* Frameworks */,
+				0243379B2483CC00007526F0 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "pysimul-headless";
+			productName = pysimul;
+			productReference = 024337A02483CC00007526F0 /* libpysimul-headless.so */;
+			productType = "com.apple.product-type.library.static";
+		};
 		027D77CF2428F3CE00785488 /* Simul */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 027D77E52428F3CE00785488 /* Build configuration list for PBXNativeTarget "Simul" */;
@@ -170,6 +211,7 @@
 			targets = (
 				027D77CF2428F3CE00785488 /* Simul */,
 				02BBCF34244DB061001C76B0 /* pysimul */,
+				024337942483CC00007526F0 /* pysimul-headless */,
 			);
 		};
 /* End PBXProject section */
@@ -201,6 +243,17 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		024337952483CC00007526F0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				024337962483CC00007526F0 /* langevin-survival.cpp in Sources */,
+				024337972483CC00007526F0 /* pysimul-common.cpp in Sources */,
+				024337982483CC00007526F0 /* vecs2.cpp in Sources */,
+				024337992483CC00007526F0 /* pysimul-util.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		027D77CB2428F3CE00785488 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -216,7 +269,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				02E72F49244E6C3A002C5174 /* pysimul-common.cpp in Sources */,
-				025A8232247498480095EE29 /* langevin.cpp in Sources */,
+				024337A12483CC33007526F0 /* langevin.cpp in Sources */,
 				028FD19824526C47005B4B0A /* vecs2.cpp in Sources */,
 				025A823124727CE70095EE29 /* pysimul-util.cpp in Sources */,
 			);
@@ -225,6 +278,60 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		0243379E2483CC00007526F0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACH_O_TYPE = mh_dylib;
+				OTHER_CFLAGS = "-DSIMUL_HEADLESS";
+				PRODUCT_NAME = "pysimul-headless";
+			};
+			name = Debug;
+		};
+		0243379F2483CC00007526F0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACH_O_TYPE = mh_dylib;
+				OTHER_CFLAGS = "-DSIMUL_HEADLESS";
+				PRODUCT_NAME = "pysimul-headless";
+			};
+			name = Release;
+		};
 		027D77E32428F3CE00785488 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -407,6 +514,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0243379D2483CC00007526F0 /* Build configuration list for PBXNativeTarget "pysimul-headless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0243379E2483CC00007526F0 /* Debug */,
+				0243379F2483CC00007526F0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		027D77CA2428F3CE00785488 /* Build configuration list for PBXProject "Simul" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

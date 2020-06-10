@@ -1,5 +1,6 @@
 #include "pysimul-common.h"
 #include <string.h>
+#include <stdlib.h>
 
 double rand01 () {
 	return ::rand()/(double)RAND_MAX;

@@ -10,6 +10,7 @@ double rand01 ();
 #include <vector>
 #include <array>
 #include <map>
+#include <string>
 #include <pthread.h>
 #include <queue>
 #include <unistd.h>

@@ -40,24 +40,30 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "T", &T);
 	
 	std::random_device _rd;
-	std::mt19937 random_gen (_rd());
+	std::mt19937 rng (_rd());
 	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
+	std::uniform_real_distribution<> unif01 (0, 1);
 	
-	double well_k = 1e4;
+	#ifdef ENABLE_HARMONIC_WELL
+	double well_k = 0e4;
 	pt2_t well_center = {0.5, 0.5};
 	_register_var(_thread, "well_k", &well_k); _register_var(_thread, "well_x", &well_center.x); _register_var(_thread, "well_y", &well_center.y);
+	#endif
 	
 	// Stats
+	#ifdef ENABLE_HIST
 	std::vector<double> s_t;
 	_register_var(_thread, "sample_t", &s_t);
-	double part_T_acc = 0; uint64_t part_T_samples = 0;
-	_register_var(_thread, "part_T", &part_T_acc); _register_var(_thread, "part_T_samples", &part_T_samples);
 	// Particle position
 	std::vector<double> part_x, part_y;
 	_register_var(_thread, "part_x", &part_x); _register_var(_thread, "part_y", &part_y);
 	// Particle speed
 	std::vector<double> part_vx, part_vy;
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
+	#endif
+	double part_T_acc = 0; uint64_t part_T_samples = 0;
+	_register_var(_thread, "part_T", &part_T_acc); _register_var(_thread, "part_T_samples", &part_T_samples);
+	
 	// Particule position distribution
 	constexpr size_t xdist_Ndr = 200;
 	constexpr double xdist_max = 0.1;
@@ -72,7 +78,7 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "t", &t);
 	size_t step = 0;
 	_register_var(_thread, "step", &step);
-	constexpr size_t display_period = 100000;
+	constexpr size_t display_period = 200000;
 	
 	constexpr double Δt = 50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
@@ -80,6 +86,11 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "pause", &pause);
 	double t_pause = Inf;
 	_register_var(_thread, "t_pause", &t_pause);
+	
+	// Poissonian resetting
+	double reset_rate = 0.0002 / Δt;
+	_register_var(_thread, "reset_rate", &reset_rate);
+	const double proba_reset_step = Δt * reset_rate;
 	
 	pt2_t x = pt2_t{0.5,0.5};
 	vec2_t v = {0,0};
@@ -113,14 +124,19 @@ void* comp_thread (void* _data) {
 		
 			/******************************/
 			
+			#ifdef ENABLE_HIST
 			s_t.push_back(t);
 			part_x.push_back( x.x );
 			part_y.push_back( x.y );
 			part_vx.push_back( v.x );
 			part_vy.push_back( v.y );
+			#endif
 			
-			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(random_gen), .y = normal_distrib_gen(random_gen) };
-			vec2_t f_ext = well_k * (well_center - x);
+			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
+			vec2_t f_ext = {0,0};
+			#ifdef ENABLE_HARMONIC_WELL
+			f_ext += well_k * (well_center - x);
+			#endif
 			vec2_t a = -γ*v + f_alea + f_ext;
 			
 			v += a / part_m * Δt;
@@ -131,7 +147,7 @@ void* comp_thread (void* _data) {
 			part_T_samples++;
 			
 			constexpr double dx = xdist_max/xdist_Ndr;
-			vec2_t rpos = x - well_center;
+			vec2_t rpos = x - pt2_t{0.5,0.5};
 			int64_t x_k = ::lround( rpos.x / dx );
 			if (std::abs(x_k) <= xdist_Ndr)
 				xdist_acc[ xdist_Ndr + x_k ]++;
@@ -142,6 +158,11 @@ void* comp_thread (void* _data) {
 			
 			t += Δt;
 			step++;
+			
+			if (unif01(rng) < proba_reset_step) {
+				x = pt2_t{0.5,0.5};
+			//	v = {0,0};
+			}
 			
 			if (t > t_pause) {
 				pause = true;
