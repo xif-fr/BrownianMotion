@@ -4,7 +4,7 @@ LD_FLAGS := -flto -lm -lfmt -fPIC
 LD_FLAGS_SFML := -lsfml-graphics -lsfml-window -lsfml-system
 
 brownian-motion-pysimul:
-	echo "Compiling simulation core..."
+	echo "Compiling LJ-gas simulation core..."
 	clang++ $(CXX_FLAGS) $(CXX_FLAGS_SFML) main.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) $(LD_FLAGS_SFML) -shared -o libpysimul.so
 	echo "Building CFFI module..."
 	python3 cffi-build.py
@@ -18,3 +18,11 @@ brownian-motion-pysimul-headless: brownian-motion-pysimul
 brownian-motion-standalone:
 	clang++ $(CXX_FLAGS) -DMAIN_SOLO main.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) -o brownian-motion
 	rm *.o
+
+langevin-survival-pysimul:
+	echo "Compiling Langevin survival simulation core..."
+	clang++ $(CXX_FLAGS) -DSIMUL_HEADLESS langevin-survival.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) -shared -o libpysimul.so
+	echo "Building CFFI module..."
+	python3 cffi-build.py
+	rm *.o
+	rm pysimul_ffi.c
