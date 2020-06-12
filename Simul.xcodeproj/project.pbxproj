@@ -7,16 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		024337962483CC00007526F0 /* langevin-survival.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0243379224832FE6007526F0 /* langevin-survival.cpp */; };
 		024337972483CC00007526F0 /* pysimul-common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02E72F45244E6C2B002C5174 /* pysimul-common.cpp */; };
 		024337982483CC00007526F0 /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
 		024337992483CC00007526F0 /* pysimul-util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025A822F24727CAC0095EE29 /* pysimul-util.cpp */; };
 		0243379C2483CC00007526F0 /* cffi-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = 02E72F42244E27D1002C5174 /* cffi-proto.h */; };
-		024337A12483CC33007526F0 /* langevin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02AF2A0224713C4B00B73887 /* langevin.cpp */; };
 		025A823124727CE70095EE29 /* pysimul-util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 025A822F24727CAC0095EE29 /* pysimul-util.cpp */; };
-		025A8233247498510095EE29 /* langevin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02AF2A0224713C4B00B73887 /* langevin.cpp */; };
 		027D77EF2428F4AC00785488 /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
 		028FD19824526C47005B4B0A /* vecs2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 027D77ED2428F4AC00785488 /* vecs2.cpp */; };
+		02DBF1622492BF5D0077B117 /* langevin-survival.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0243379224832FE6007526F0 /* langevin-survival.cpp */; };
 		02E72F43244E27D1002C5174 /* cffi-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = 02E72F42244E27D1002C5174 /* cffi-proto.h */; };
 		02E72F47244E6C2B002C5174 /* pysimul-common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02E72F45244E6C2B002C5174 /* pysimul-common.cpp */; };
 		02E72F49244E6C3A002C5174 /* pysimul-common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02E72F45244E6C2B002C5174 /* pysimul-common.cpp */; };
@@ -247,7 +245,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				024337962483CC00007526F0 /* langevin-survival.cpp in Sources */,
+				02DBF1622492BF5D0077B117 /* langevin-survival.cpp in Sources */,
 				024337972483CC00007526F0 /* pysimul-common.cpp in Sources */,
 				024337982483CC00007526F0 /* vecs2.cpp in Sources */,
 				024337992483CC00007526F0 /* pysimul-util.cpp in Sources */,
@@ -258,7 +256,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				025A8233247498510095EE29 /* langevin.cpp in Sources */,
 				02E72F47244E6C2B002C5174 /* pysimul-common.cpp in Sources */,
 				027D77EF2428F4AC00785488 /* vecs2.cpp in Sources */,
 			);
@@ -269,7 +266,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				02E72F49244E6C3A002C5174 /* pysimul-common.cpp in Sources */,
-				024337A12483CC33007526F0 /* langevin.cpp in Sources */,
 				028FD19824526C47005B4B0A /* vecs2.cpp in Sources */,
 				025A823124727CE70095EE29 /* pysimul-util.cpp in Sources */,
 			);

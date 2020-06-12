@@ -3,7 +3,8 @@
 #include <random>
 #include <vector>
 
-const size_t pysimul_N = 0;
+constexpr size_t N_targets = 1;
+const size_t pysimul_N = N_targets;
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
@@ -24,6 +25,7 @@ void* comp_thread (void* _data) {
 //	pt2_t well_center = {0.5, 0.5};
 //	_register_var(_thread, "well_k", &well_k); _register_var(_thread, "well_x", &well_center.x); _register_var(_thread, "well_y", &well_center.y);
 	
+	#define ENABLE_SURVIVAL_PROBABILITIES
 	#ifdef ENABLE_SURVIVAL_PROBABILITIES
 	// Survival probability as a function of time
 	constexpr size_t survdist_Ndt = 100;
@@ -49,14 +51,14 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// First passage time at the target @ x=survdist_time_pos
-	constexpr size_t N_targets = 10;
 	std::array<std::vector<double>,N_targets> first_times;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
+//	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.30 };
 	for (size_t i = 0; i < N_targets; i++) {
 		auto s = fmt::format("first_times-{}", i);
 		_register_var(_thread, s.c_str(), &first_times[i]);
 	}
-	std::array<double, N_targets> _first_times_xtarg = first_times_xtarg;
+	auto _first_times_xtarg = first_times_xtarg;
 	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
 	
 	double t = 0;
@@ -97,12 +99,20 @@ void* comp_thread (void* _data) {
 		step = 0;
 		t = 0;
 		
-		auto init_pos = [&] () -> pt2_t {
-			return pt2_t{ .x = init_pos_sigma * normal_distrib_gen(rng),
-			              .y = init_pos_sigma * normal_distrib_gen(rng) };
+		pt2_t x;
+		vec2_t v;
+		
+		auto init_pos = [&] () -> void {
+			x =  pt2_t{
+				.x = init_pos_sigma * normal_distrib_gen(rng),
+				.y = init_pos_sigma * normal_distrib_gen(rng)
+			};
+			v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
+				.r = sqrt(2*T/part_m),
+				.θ = unif01(rng)*2*π
+			};
 		};
-		pt2_t x = init_pos();
-		vec2_t v = (vec2_t)vecO_t{ .r = sqrt(2*T/part_m), .θ = unif01(rng)*2*π };
+		init_pos();
 		
 		double max_x_reached = 0.;
 		bool survdist_pos_done = false;
@@ -116,7 +126,7 @@ void* comp_thread (void* _data) {
 			
 			#ifdef ENABLE_POISSON_RESET
 			if (unif01(rng) < proba_reset_step) {
-				x = init_pos();
+				init_pos();
 			}
 			#endif
 			

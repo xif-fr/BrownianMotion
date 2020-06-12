@@ -51,6 +51,7 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// Stats
+	#undef ENABLE_HIST
 	#ifdef ENABLE_HIST
 	std::vector<double> s_t;
 	_register_var(_thread, "sample_t", &s_t);
@@ -60,6 +61,8 @@ void* comp_thread (void* _data) {
 	// Particle speed
 	std::vector<double> part_vx, part_vy;
 	_register_var(_thread, "part_vx", &part_vx); _register_var(_thread, "part_vy", &part_vy);
+	std::vector<double> reset_times;
+	_register_var(_thread, "reset_times", &reset_times);
 	#endif
 	double part_T_acc = 0; uint64_t part_T_samples = 0;
 	_register_var(_thread, "part_T", &part_T_acc); _register_var(_thread, "part_T_samples", &part_T_samples);
@@ -162,6 +165,9 @@ void* comp_thread (void* _data) {
 			if (unif01(rng) < proba_reset_step) {
 				x = pt2_t{0.5,0.5};
 			//	v = {0,0};
+				#ifdef ENABLE_HIST
+				reset_times.push_back(t);
+				#endif
 			}
 			
 			if (t > t_pause) {
