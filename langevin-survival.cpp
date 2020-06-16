@@ -3,14 +3,18 @@
 #include <random>
 #include <vector>
 
-constexpr size_t N_targets = 1;
+constexpr size_t N_targets = 10;
+//constexpr size_t N_targets = 1;
 const size_t pysimul_N = N_targets;
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
 
+	#define LANGEVIN_OVERDAMPED
+	#ifndef LANGEVIN_OVERDAMPED
 	double part_m = 10;
 	_register_var(_thread, "part_m", &part_m);
+	#endif
 	double γ = 600;
 	_register_var(_thread, "gamma", &γ);
 	double T = 10;
@@ -52,8 +56,8 @@ void* comp_thread (void* _data) {
 	
 	// First passage time at the target @ x=survdist_time_pos
 	std::array<std::vector<double>,N_targets> first_times;
-//	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.30 };
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
+//	constexpr std::array<double, N_targets> first_times_xtarg = { 0.30 };
 	for (size_t i = 0; i < N_targets; i++) {
 		auto s = fmt::format("first_times-{}", i);
 		_register_var(_thread, s.c_str(), &first_times[i]);
@@ -100,17 +104,21 @@ void* comp_thread (void* _data) {
 		t = 0;
 		
 		pt2_t x;
+		#ifndef LANGEVIN_OVERDAMPED
 		vec2_t v;
+		#endif
 		
 		auto init_pos = [&] () -> void {
 			x =  pt2_t{
 				.x = init_pos_sigma * normal_distrib_gen(rng),
 				.y = init_pos_sigma * normal_distrib_gen(rng)
 			};
+			#ifndef LANGEVIN_OVERDAMPED
 			v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
 				.r = sqrt(2*T/part_m),
 				.θ = unif01(rng)*2*π
 			};
+			#endif
 		};
 		init_pos();
 		
@@ -131,10 +139,16 @@ void* comp_thread (void* _data) {
 			#endif
 			
 			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng),/* .y = normal_distrib_gen(rng)*/ };
+			#ifndef LANGEVIN_OVERDAMPED
 //			vec2_t f_ext = well_k * (well_center - x);
 			vec2_t a = -γ*v + f_alea;// + f_ext;
+			#else
+			vec2_t v = f_alea / γ;
+			#endif
 			
+			#ifndef LANGEVIN_OVERDAMPED
 			v += a / part_m * Δt;
+			#endif
 			x = x + v * Δt;
 			
 			// record x position reached
