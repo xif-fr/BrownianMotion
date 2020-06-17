@@ -55,9 +55,12 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// First passage time at the target @ x=survdist_time_pos
+	#define FPT_JUMP_ACROSS
 	std::array<std::vector<double>,N_targets> first_times;
 	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
 //	constexpr std::array<double, N_targets> first_times_xtarg = { 0.30 };
+	constexpr double xtarg_tol = 0.001;
+	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	for (size_t i = 0; i < N_targets; i++) {
 		auto s = fmt::format("first_times-{}", i);
 		_register_var(_thread, s.c_str(), &first_times[i]);
@@ -67,11 +70,11 @@ void* comp_thread (void* _data) {
 	
 	double t = 0;
 	size_t step = 0;
-	constexpr size_t trajectory_step_max_length = 5000000;
+	constexpr size_t trajectory_step_max_length = 10000000;
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
 	
-	constexpr double Δt = 50 * 1.5e-6;
+	constexpr double Δt = 50e-6;//50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
@@ -126,6 +129,10 @@ void* comp_thread (void* _data) {
 		bool survdist_pos_done = false;
 		uint8_t target_reached = 0;
 		
+		double last_x;
+		std::array<bool,N_targets> targets_reached;
+		targets_reached.fill(false);
+		
 		#ifdef ENABLE_SURVIVAL_PROBABILITIES
 		while (t < survdist_max_t or (target_reached < N_targets and step < trajectory_step_max_length)) {
 		#else
@@ -137,6 +144,7 @@ void* comp_thread (void* _data) {
 				init_pos();
 			}
 			#endif
+			last_x = x.x;
 			
 			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng),/* .y = normal_distrib_gen(rng)*/ };
 			#ifndef LANGEVIN_OVERDAMPED
@@ -152,13 +160,37 @@ void* comp_thread (void* _data) {
 			x = x + v * Δt;
 			
 			// record x position reached
+			#if defined(ENABLE_SURVIVAL_PROBABILITIES) || defined(FPT_DEMISPACE)
 			if (x.x > max_x_reached) {
 				max_x_reached = x.x;
+				#ifdef FPT_DEMISPACE
 				if (max_x_reached >= first_times_xtarg[target_reached] and target_reached < N_targets) {
 					first_times[target_reached].push_back(t);
 					target_reached++;
 				}
+				#endif
 			}
+			#endif
+			#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL)
+			for (uint8_t i = 0; i < N_targets; i++) {
+				if (not targets_reached[i]) {
+					#ifdef FPT_JUMP_ACROSS
+					bool a = x.x < first_times_xtarg[i];
+					bool b = first_times_xtarg[i] < last_x;
+					bool target = (a and b) or (not a and not b);
+					#endif
+					#ifdef FPT_INTERVAL
+					bool target = std::abs(x.x - first_times_xtarg[i]) < xtarg_tol;
+					#endif
+					if (target) {
+						targets_reached[i] = true;
+						first_times[i].push_back(t);
+						if (target_reached < i+1)
+							target_reached = i+1;
+					}
+				}
+			}
+			#endif
 			
 			#ifdef ENABLE_SURVIVAL_PROBABILITIES
 			// let's check which targets the particle reached at specified t
