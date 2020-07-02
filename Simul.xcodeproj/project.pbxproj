@@ -21,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0227971724A36AF300E14C47 /* common.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = common.py; sourceTree = "<group>"; };
 		0243379224832FE6007526F0 /* langevin-survival.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "langevin-survival.cpp"; sourceTree = "<group>"; };
 		024337A02483CC00007526F0 /* libpysimul-headless.so */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libpysimul-headless.so"; sourceTree = BUILT_PRODUCTS_DIR; };
 		025A822F24727CAC0095EE29 /* pysimul-util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "pysimul-util.cpp"; sourceTree = "<group>"; };
@@ -77,6 +78,7 @@
 				02E72F42244E27D1002C5174 /* cffi-proto.h */,
 				02E72F3E244DE324002C5174 /* cffi-build.py */,
 				02E72F44244E689C002C5174 /* pysimul.py */,
+				0227971724A36AF300E14C47 /* common.py */,
 				027D77EC2428F48700785488 /* sfml_c01.hpp */,
 				027D77EE2428F4AC00785488 /* vecs2.hpp */,
 				027D77ED2428F4AC00785488 /* vecs2.cpp */,
