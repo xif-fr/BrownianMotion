@@ -4,7 +4,6 @@
 #include <vector>
 
 constexpr size_t N_targets = 10;
-//constexpr size_t N_targets = 1;
 const size_t pysimul_N = N_targets;
 
 void* comp_thread (void* _data) {
@@ -25,11 +24,7 @@ void* comp_thread (void* _data) {
 	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
 	std::uniform_real_distribution<> unif01 (0, 1);
 	
-//	double well_k = 1e4;
-//	pt2_t well_center = {0.5, 0.5};
-//	_register_var(_thread, "well_k", &well_k); _register_var(_thread, "well_x", &well_center.x); _register_var(_thread, "well_y", &well_center.y);
-	
-	#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
+//	#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 	#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(ENABLE_SURVIVAL_PROBABILITIES_INTERVAL)
 	// Survival probability as a function of time at a given position
 	constexpr size_t survdist_Ndt = 100;
@@ -55,10 +50,9 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// First passage time at the target @ x=survdist_time_pos
-//	#define FPT_JUMP_ACROSS
+	#define FPT_JUMP_ACROSS
 	std::array<std::vector<double>,N_targets> first_times;
 	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
-//	constexpr std::array<double, N_targets> first_times_xtarg = { 0.30 };
 	constexpr double xtarg_tol = 0.001;
 	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	for (size_t i = 0; i < N_targets; i++) {
@@ -74,7 +68,7 @@ void* comp_thread (void* _data) {
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
 	
-	constexpr double Δt = 1e-5;//50 * 1.5e-6;
+	constexpr double Δt = 1e-6;//50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
@@ -210,8 +204,7 @@ void* comp_thread (void* _data) {
 					if (target) {
 						targets_reached[i] = true;
 						first_times[i].push_back(t);
-						if (target_reached < i+1)
-							target_reached = i+1;
+						target_reached = std::count(targets_reached.begin(), targets_reached.end(), true);
 					}
 				}
 			}

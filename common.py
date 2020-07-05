@@ -86,7 +86,7 @@ def fpt_poisson_tau (b, c):
 
 # Periodical reset
 
-def fpt_periodical_c (rT, D, L):
+def fpt_periodic_c (rT, D, L):
 	return L/sqrt(4*D*rT)
 
 def fpt_periodic_tau (b, c):
@@ -120,6 +120,6 @@ def fpt_periodic_disrib (t, rT, b, c):
 	if np.all(np.isinf(b)):
 		return c * prefact_dt_erf(k,t) * ss.erf(c)**k * np.exp(-c**2*rT/(t-k*rT))
 	else:
-		int_exp_dterf = lambda b,c,k,t: sint.quad( lambda u, b,c: np.abs(1-u/b) * np.exp(-u**2/2 -c**2*(1-u/b)**2*rT/(t-k*rT)), -np.inf, +np.inf, args=(b,c,k,t), epsrel=1e-3 )[0]
+		int_exp_dterf = lambda b,c,k,t: sint.quad( lambda u, b,c,k,t: np.abs(1-u/b) * np.exp(-u**2/2 -c**2*(1-u/b)**2*rT/(t-k*rT)), -np.inf, +np.inf, args=(b,c,k,t), epsrel=1e-3 )[0]
 		int_exp_dterf = np.vectorize( int_exp_dterf )
 		return c * (1/sqrt(2*π))**(k+1) * int_exp_erf(b,c)**k * prefact_dt_erf(k,t) * int_exp_dterf(b,c,k,t)
