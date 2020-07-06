@@ -2,6 +2,7 @@
 #include "pysimul-common.h"
 #include <random>
 #include <vector>
+#include <algorithm>
 
 constexpr size_t N_targets = 10;
 const size_t pysimul_N = N_targets;
