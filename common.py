@@ -62,21 +62,46 @@ def fpt_free_survival (L, t, D, σ):
 def fpt_poisson_c (α, D, L):
 	return sqrt(α/D)*L
 
-def fpt_poisson_survival_σ0 (x, t, α, D):
+def fpt_poisson_inverselapl (x, t, α, D, σ, fpt):
+	mpmath.mp.dps = 20
 	x = np.atleast_1d(x)
 	t = np.atleast_1d(t)
 	P = np.zeros((len(x),len(t)))
+
+	sqrt2 = mpmath.sqrt(2)
+	if fpt:
+		ret_psr_lp = lambda psr,s: 1 - s*psr  # p(tf) = - d/dt psr
+	else:
+		ret_psr_lp = lambda psr,s: psr
+
 	for i in range(len(x)):
+		if σ == 0:
+			def ps0_lp (κ, s):
+				return (1 - mpmath.exp(-κ * x[i])) / s
+		else:
+			b = x[i] / σ
+			def ps0_lp (κ, s):
+				k = σ * κ
+				return (1 - mpmath.exp(k**2/2)/2 * ( mpmath.exp(+κ*x[i]) * mpmath.erfc((b+k)/sqrt2)
+				                                   + mpmath.exp(-κ*x[i]) * (1+mpmath.erf((b-k)/sqrt2)) ) ) / s
 		def psr_lp (s):
-			kappa = mpmath.sqrt( (α + s) / D )
-			e = mpmath.exp(-kappa * x[i])
-			return (1 - e) / (s + α*e)
+			κ = mpmath.sqrt( (α+s) / D )
+			ps0 = ps0_lp(κ, s=α+s)
+			psr = ps0 / (1 - α*ps0)
+			return ret_psr_lp(psr, s)
+
 		for j in range(len(t)):
 			if x[i] < 0:
 				P[i,j] = 0
 			else:
 				P[i,j] = mpmath.invertlaplace(psr_lp, t[j], method='talbot')
 	return np.squeeze(P)
+
+def fpt_poisson_survival (x, t, α, D, σ):
+	return fpt_poisson_inverselapl(x, t, α, D, σ, False)
+
+def fpt_poisson_distrib (x, t, α, D, σ):
+	return fpt_poisson_inverselapl(x, t, α, D, σ, True)
 
 def fpt_poisson_tau (b, c):
 	if np.all(np.isinf(b)):

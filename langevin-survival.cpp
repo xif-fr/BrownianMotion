@@ -79,7 +79,7 @@ void* comp_thread (void* _data) {
 	double init_pos_sigma = 0.1; // gaussian distribution of initial position
 	_register_var(_thread, "x0sigma", &init_pos_sigma);
 	
-	#define ENABLE_PERIODICAL_RESET
+	#define ENABLE_POISSON_RESET
 	
 	// Poissonian resetting
 	#ifdef ENABLE_POISSON_RESET
