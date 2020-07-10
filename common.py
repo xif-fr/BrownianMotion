@@ -1,7 +1,6 @@
 import numpy as np
 from math import *
 π = np.pi
-
 import scipy.special as ss
 import scipy.integrate as sint
 import mpmath
@@ -63,7 +62,7 @@ def fpt_poisson_c (α, D, L):
 	return sqrt(α/D)*L
 
 def fpt_poisson_inverselapl (x, t, α, D, σ, fpt):
-	mpmath.mp.dps = 20
+	mpmath.mp.dps = 30
 	x = np.atleast_1d(x)
 	t = np.atleast_1d(t)
 	P = np.zeros((len(x),len(t)))
@@ -94,7 +93,7 @@ def fpt_poisson_inverselapl (x, t, α, D, σ, fpt):
 			if x[i] < 0:
 				P[i,j] = 0
 			else:
-				P[i,j] = mpmath.invertlaplace(psr_lp, t[j], method='talbot')
+				P[i,j] = mpmath.invertlaplace(psr_lp, t[j], method='talbot', degree=20)
 	return np.squeeze(P)
 
 def fpt_poisson_survival (x, t, α, D, σ):
