@@ -7,10 +7,15 @@
 constexpr size_t N_targets = 10;
 const size_t pysimul_N = N_targets;
 
+#define LANGEVIN_OVERDAMPED
+#define TARGET_2D_CYL
+#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
+//#define FPT_JUMP_ACROSS
+#define FPT_INTERVAL
+
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
-
-	#define LANGEVIN_OVERDAMPED
+	
 	#ifndef LANGEVIN_OVERDAMPED
 	double part_m = 10;
 	_register_var(_thread, "part_m", &part_m);
@@ -25,7 +30,16 @@ void* comp_thread (void* _data) {
 	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
 	std::uniform_real_distribution<> unif01 (0, 1);
 	
-//	#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
+	// 2D circular target with "tolerence radius" Rtol around x=x_targ,y=0
+	// By default, only 1 dimension is considered and targets are simply x=cst lines
+	#ifdef TARGET_2D_CYL
+	double Rtol = 0.1;
+	_register_var(_thread, "2D-Rtol", &Rtol);
+	#if defined(FPT_JUMP_ACROSS) || defined(FPT_DEMISPACE) || defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE)
+		#error "2D target is only compatible with *_INTERVAL flags"
+	#endif
+	#endif
+	
 	#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(ENABLE_SURVIVAL_PROBABILITIES_INTERVAL)
 	// Survival probability as a function of time at a given position
 	constexpr size_t survdist_Ndt = 100;
@@ -51,7 +65,7 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// First passage time at the target @ x=survdist_time_pos
-	#define FPT_JUMP_ACROSS
+	#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL) || defined(FPT_DEMISPACE)
 	std::array<std::vector<double>,N_targets> first_times;
 	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
 	constexpr double xtarg_tol = 0.001;
@@ -62,6 +76,7 @@ void* comp_thread (void* _data) {
 	}
 	auto _first_times_xtarg = first_times_xtarg;
 	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
+	#endif
 	
 	double t = 0;
 	size_t step = 0;
@@ -134,6 +149,10 @@ void* comp_thread (void* _data) {
 		target_reached = 0;
 		#endif
 		
+		// when using ENABLE_SURVIVAL_PROBABILITIES_INTERVAL, we check if a target is reached
+		// every step, and keep track of reached targets in `survdist_survived`; it is slower
+		// than ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE, but the only accurate way when there
+		// is resetting with init_pos_sigma≠0
 		#ifdef ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 		std::array<bool,survdist_Ndx> survdist_survived;
 		survdist_survived.fill(true);
@@ -153,6 +172,7 @@ void* comp_thread (void* _data) {
 		while (target_reached < N_targets and step < trajectory_step_max_length) {
 		#endif
 			
+			// resetting
 			#ifdef ENABLE_POISSON_RESET
 			if (unif01(rng) < proba_reset_step) {
 				init_pos();
@@ -166,14 +186,13 @@ void* comp_thread (void* _data) {
 			#endif
 			last_x = x.x;
 			
-			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng),/* .y = normal_distrib_gen(rng)*/ };
+			// Langevin equation implementation
+			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
 			#ifndef LANGEVIN_OVERDAMPED
-//			vec2_t f_ext = well_k * (well_center - x);
-			vec2_t a = -γ*v + f_alea;// + f_ext;
+			vec2_t a = -γ*v + f_alea;
 			#else
 			vec2_t v = f_alea / γ;
 			#endif
-			
 			#ifndef LANGEVIN_OVERDAMPED
 			v += a / part_m * Δt;
 			#endif
@@ -191,16 +210,22 @@ void* comp_thread (void* _data) {
 				#endif
 			}
 			#endif
+			
+			// first passage time distribution for each target at x=first_times_xtarg[i]
 			#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL)
 			for (uint8_t i = 0; i < N_targets; i++) {
 				if (not targets_reached[i]) {
 					#ifdef FPT_JUMP_ACROSS
-					bool a = x.x < first_times_xtarg[i];
-					bool b = first_times_xtarg[i] < last_x;
-					bool target = (a and b) or (not a and not b);
+						bool a = x.x < first_times_xtarg[i];
+						bool b = first_times_xtarg[i] < last_x;
+						bool target = (a and b) or (not a and not b);
 					#endif
 					#ifdef FPT_INTERVAL
-					bool target = std::abs(x.x - first_times_xtarg[i]) < xtarg_tol;
+						#ifndef TARGET_2D_CYL
+						bool target = std::abs(x.x - first_times_xtarg[i]) < xtarg_tol;
+						#else
+						bool target = !(x - pt2_t{ first_times_xtarg[i], 0 }) < Rtol*Rtol;
+						#endif
 					#endif
 					if (target) {
 						targets_reached[i] = true;
@@ -212,11 +237,24 @@ void* comp_thread (void* _data) {
 			#endif
 			
 			#ifdef ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
+			// keeping track of reached targets for survival distributions
 			constexpr double dx = survdist_max_x/survdist_Ndx;
+			#ifdef TARGET_2D_CYL
+			int64_t x_k_inf = std::max<int64_t>( std::floor( x.x-Rtol / dx ), 0 );
+			int64_t x_k_sup = std::min<int64_t>( std::floor( x.x+Rtol / dx ), survdist_Ndx );
+			if (x_k_sup >= 0) {
+				for (uint64_t x_k = x_k_inf; x_k < x_k_sup; x_k++) {
+					if (!(x - pt2_t{ x_k*dx, 0 }) < Rtol*Rtol)
+						survdist_survived[x_k] = false;
+				}
+			}
+			#else
 			int64_t x_k = std::floor( x.x / dx );
 			if (x_k >= 0 and x_k < survdist_Ndx)
 				survdist_survived[x_k] = false;
 			#endif
+			#endif
+			
 			#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(ENABLE_SURVIVAL_PROBABILITIES_INTERVAL)
 			
 			// let's check which targets the particle reached at specified t
@@ -240,7 +278,8 @@ void* comp_thread (void* _data) {
 				survdist_pos_done = true;
 			}
 			
-			//
+			// let's check if if the particle reached the target at specified x
+			// and fill the survival distribution as a function of time accordingly
 			constexpr double dt = survdist_max_t/survdist_Ndt;
 			uint64_t t_k = std::floor( t / dt );
 			if (t_k < survdist_Ndt) {
