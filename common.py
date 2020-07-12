@@ -36,6 +36,7 @@ def convolve_around_center (func1, func2, N1, Nout, Δx, x_center=0):
 def distr_x0_harmonic (x, σ):
 	return np.exp(-(x/σ)**2/2)/sqrt(2*π)/σ
 
+#----------------------------------------------------------------
 # No resetting
 
 def fpt_free_survival (L, t, D, σ):
@@ -56,6 +57,30 @@ def fpt_free_survival (L, t, D, σ):
 #	else:
 #		pass
 
+
+def pft_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True):
+	if σ == 0:
+		a = Rtol/R
+		c = R/np.sqrt(4*D*t)
+		f = lambda x, a,c: np.exp(-x**2/(4*a**2*c**2)) / x * (ss.y0(x/a)*ss.j0(x)-ss.j0(x/a)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2)
+		if regularize:
+			# regularization of the divergence of f at x=0 by substracting the leading-order term,
+			# which is, amazingly, integrable analytically; this allows the integrator to better behave;
+			# splitting the domain in two does improve the result a tiny bit
+			f_reg = lambda x, a,c: f(x,a,c) - 1/x * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2)
+			if split_domain: ps0 = lambda a,c: 2*log(1/a) + ( sint.quad(f_reg, 0, 1, args=(a,c), epsabs=1e-6, limit=1000)[0] + sint.quad(f_reg, 1, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
+			else:            ps0 = lambda a,c: 2*log(1/a) + sint.quad(f_reg, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
+		else:
+			# splitting the domain in two (one near zero where there is a singularity, the other to infinity)
+			# allows to use to integration methods, one on the finite domain which treats the singularity well
+			# and the other which treats the rest of the infinite domain without singularity
+			if split_domain: ps0 = lambda a,c: sint.quad(f, 0, 0.1, args=(a,c), epsabs=1e-4, limit=1000)[0] + sint.quad(f, 0.1, +np.inf, args=(a,c), epsabs=1e-6, limit=1000)[0]
+			else:            ps0 = lambda a,c: sint.quad(f, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
+		return 2/π * np.vectorize( lambda a,c: (ps0(a,c) if a < 0.999 else 0.) )(a,c)
+	else:
+		pass
+
+#----------------------------------------------------------------
 # Poissonian reset
 
 def fpt_poisson_c (α, D, L):
@@ -82,7 +107,7 @@ def fpt_poisson_inverselapl (x, t, α, D, σ, fpt):
 			def ps0_lp (κ, s):
 				k = σ * κ
 				return (1 - mpmath.exp(k**2/2)/2 * ( mpmath.exp(+κ*x[i]) * mpmath.erfc((b+k)/sqrt2)
-				                                   + mpmath.exp(-κ*x[i]) * (1+mpmath.erf((b-k)/sqrt2)) ) ) / s
+												   + mpmath.exp(-κ*x[i]) * (1+mpmath.erf((b-k)/sqrt2)) ) ) / s
 		def psr_lp (s):
 			κ = mpmath.sqrt( (α+s) / D )
 			ps0 = ps0_lp(κ, s=α+s)
@@ -108,6 +133,7 @@ def fpt_poisson_tau (b, c):
 	else:
 		return 4/c**2 * ( (2*np.exp(-c**2/2/b**2)) / ( np.exp(c)*ss.erfc((c/b+b)/sqrt(2)) + np.exp(-c)*ss.erfc((c/b-b)/sqrt(2)) ) - 1 )
 
+#----------------------------------------------------------------
 # Periodical reset
 
 def fpt_periodic_c (rT, D, L):

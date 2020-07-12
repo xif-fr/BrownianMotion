@@ -11,7 +11,8 @@ const size_t pysimul_N = N_targets;
 #define TARGET_2D_CYL
 #define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 //#define FPT_JUMP_ACROSS
-#define FPT_INTERVAL
+//#define FPT_INTERVAL
+//#define ENABLE_POISSON_RESET
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
@@ -84,7 +85,7 @@ void* comp_thread (void* _data) {
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
 	
-	constexpr double Δt = 1e-6;//50 * 1.5e-6;
+	constexpr double Δt = 0.8e-5;//50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
@@ -93,9 +94,7 @@ void* comp_thread (void* _data) {
 	
 	double init_pos_sigma = 0.1; // gaussian distribution of initial position
 	_register_var(_thread, "x0sigma", &init_pos_sigma);
-	
-	#define ENABLE_POISSON_RESET
-	
+		
 	// Poissonian resetting
 	#ifdef ENABLE_POISSON_RESET
 	double reset_rate = 0.001 / Δt;
@@ -240,13 +239,11 @@ void* comp_thread (void* _data) {
 			// keeping track of reached targets for survival distributions
 			constexpr double dx = survdist_max_x/survdist_Ndx;
 			#ifdef TARGET_2D_CYL
-			int64_t x_k_inf = std::max<int64_t>( std::floor( x.x-Rtol / dx ), 0 );
-			int64_t x_k_sup = std::min<int64_t>( std::floor( x.x+Rtol / dx ), survdist_Ndx );
-			if (x_k_sup >= 0) {
-				for (uint64_t x_k = x_k_inf; x_k < x_k_sup; x_k++) {
-					if (!(x - pt2_t{ x_k*dx, 0 }) < Rtol*Rtol)
-						survdist_survived[x_k] = false;
-				}
+			int64_t x_k_inf = std::max<int64_t>( std::floor( (x.x-Rtol) / dx ), 0 );
+			int64_t x_k_sup = std::min<int64_t>( std::floor( (x.x+Rtol) / dx ), survdist_Ndx );
+			for (int64_t x_k = x_k_inf; x_k < x_k_sup; x_k++) {
+				if (!(x - pt2_t{ x_k*dx, 0 }) < Rtol*Rtol)
+					survdist_survived[x_k] = false;
 			}
 			#else
 			int64_t x_k = std::floor( x.x / dx );

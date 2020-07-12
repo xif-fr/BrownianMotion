@@ -1,4 +1,4 @@
-CXX_FLAGS := -flto -O3 -std=c++11 -Wall
+CXX_FLAGS := -flto -O3 -std=c++11 -Wall -Wno-switch
 CXX_FLAGS_SFML := -DSFMLC01_WINDOW_UNIT=700 -DSFMLC01_WINDOW_HEIGHT=700 -DFONT_PATH=\"DejaVuSansMono.ttf\"
 LD_FLAGS := -flto -lm -lfmt -fPIC
 LD_FLAGS_SFML := -lsfml-graphics -lsfml-window -lsfml-system
