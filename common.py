@@ -67,16 +67,16 @@ def pft_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True)
 			# regularization of the divergence of f at x=0 by substracting the leading-order term,
 			# which is, amazingly, integrable analytically; this allows the integrator to better behave;
 			# splitting the domain in two does improve the result a tiny bit
-			f_reg = lambda x, a,c: f(x,a,c) - 1/x * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2)
-			if split_domain: ps0 = lambda a,c: 2*log(1/a) + ( sint.quad(f_reg, 0, 1, args=(a,c), epsabs=1e-6, limit=1000)[0] + sint.quad(f_reg, 1, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
-			else:            ps0 = lambda a,c: 2*log(1/a) + sint.quad(f_reg, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
+			f_reg = lambda x, a,c: f(x,a,c) - 1/x * 2/π * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2)
+			if split_domain: ps0 = lambda a,c: 2*log(1/a) + 2/π * ( sint.quad(f_reg, 0, 1, args=(a,c), epsabs=1e-6, limit=1000)[0] + sint.quad(f_reg, 1, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
+			else:            ps0 = lambda a,c: 2*log(1/a) + 2/π * ( sint.quad(f_reg, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
 		else:
 			# splitting the domain in two (one near zero where there is a singularity, the other to infinity)
 			# allows to use to integration methods, one on the finite domain which treats the singularity well
 			# and the other which treats the rest of the infinite domain without singularity
-			if split_domain: ps0 = lambda a,c: sint.quad(f, 0, 0.1, args=(a,c), epsabs=1e-4, limit=1000)[0] + sint.quad(f, 0.1, +np.inf, args=(a,c), epsabs=1e-6, limit=1000)[0]
-			else:            ps0 = lambda a,c: sint.quad(f, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
-		return 2/π * np.vectorize( lambda a,c: (ps0(a,c) if a < 0.999 else 0.) )(a,c)
+			if split_domain: ps0 = lambda a,c: 2/π * ( sint.quad(f, 0, 0.1, args=(a,c), epsabs=1e-4, limit=1000)[0] + sint.quad(f, 0.1, +np.inf, args=(a,c), epsabs=1e-6, limit=1000)[0] )
+			else:            ps0 = lambda a,c: 2/π * sint.quad(f, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
+		return np.vectorize( lambda a,c: (ps0(a,c) if a < 0.999 else 0.) )(a,c)
 	else:
 		pass
 
