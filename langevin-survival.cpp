@@ -9,10 +9,10 @@ const size_t pysimul_N = N_targets;
 
 #define LANGEVIN_OVERDAMPED
 #define TARGET_2D_CYL
-#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
+//#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 //#define FPT_JUMP_ACROSS
-//#define FPT_INTERVAL
-//#define ENABLE_POISSON_RESET
+#define FPT_INTERVAL
+#define ENABLE_POISSON_RESET
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
@@ -85,7 +85,7 @@ void* comp_thread (void* _data) {
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
 	
-	constexpr double Δt = 0.8e-5;//50 * 1.5e-6;
+	constexpr double Δt = 1e-6;//50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);

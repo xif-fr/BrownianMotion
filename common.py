@@ -108,7 +108,7 @@ def fpt_poisson_inverselapl (x, t, α, D, σ, fpt):
 			def ps0_lp (κ, s):
 				k = σ * κ
 				return (1 - mpmath.exp(k**2/2)/2 * ( mpmath.exp(+κ*x[i]) * mpmath.erfc((b+k)/sqrt2)
-												   + mpmath.exp(-κ*x[i]) * (1+mpmath.erf((b-k)/sqrt2)) ) ) / s
+				                                   + mpmath.exp(-κ*x[i]) * (1+mpmath.erf((b-k)/sqrt2)) ) ) / s
 		def psr_lp (s):
 			κ = mpmath.sqrt( (α+s) / D )
 			ps0 = ps0_lp(κ, s=α+s)
@@ -135,6 +135,7 @@ def fpt_poisson_tau (b, c):
 		return 4/c**2 * ( (2*np.exp(-c**2/2/b**2)) / ( np.exp(c)*ss.erfc((c/b+b)/sqrt(2)) + np.exp(-c)*ss.erfc((c/b-b)/sqrt(2)) ) - 1 )
 
 def fpt_2d_poisson_tau (b, c, a):
+	a = np.fmin(a, 1-1e-10)
 	if np.all(np.isinf(b)):
 		return 4/c**2 * ( ss.k0(a*c) / ss.k0(c) - 1 )
 	else:
