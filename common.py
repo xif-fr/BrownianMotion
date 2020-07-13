@@ -51,14 +51,13 @@ def fpt_free_survival (L, t, D, σ):
 			return convolve_around_center(distr_x0, surv_f, x_center=L, N1=1000+int(500*sqrt(4*D*np.max(t))/σ), Nout=0, Δx=0.01*σ)[1]
 		return np.vectorize(ps)(t)
 
-#def fpt_free_tau (t, x_targ):
-#	if σ == 0:
-#		return x_targ/(2*np.sqrt(π*D*t**3)) * np.exp(-x_targ**2/(4*D*t))
-#	else:
-#		pass
+def fpt_free_distrib (t, x_targ):
+	if σ == 0:
+		return x_targ/(2*np.sqrt(π*D*t**3)) * np.exp(-x_targ**2/(4*D*t))
+	else:
+		pass
 
-
-def pft_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True):
+def fpt_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True):
 	if σ == 0:
 		a = Rtol/R
 		c = R/np.sqrt(4*D*t)
@@ -66,7 +65,8 @@ def pft_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True)
 		if regularize:
 			# regularization of the divergence of f at x=0 by substracting the leading-order term,
 			# which is, amazingly, integrable analytically; this allows the integrator to better behave;
-			# splitting the domain in two does improve the result a tiny bit
+			# splitting the domain in two does improve the result a tiny bit;
+			# (but this method seems to lead to a slight overestimation of the survival proba, if the langevin simulations are accurate)
 			f_reg = lambda x, a,c: f(x,a,c) - 1/x * 2/π * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2)
 			if split_domain: ps0 = lambda a,c: 2*log(1/a) + 2/π * ( sint.quad(f_reg, 0, 1, args=(a,c), epsabs=1e-6, limit=1000)[0] + sint.quad(f_reg, 1, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
 			else:            ps0 = lambda a,c: 2*log(1/a) + 2/π * ( sint.quad(f_reg, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0] )
@@ -78,6 +78,7 @@ def pft_2d_free_survival (R, t, D, Rtol, σ, regularize=True, split_domain=True)
 			else:            ps0 = lambda a,c: 2/π * sint.quad(f, 0, +np.inf, args=(a,c), epsabs=1e-5, limit=1000)[0]
 		return np.vectorize( lambda a,c: (ps0(a,c) if a < 0.999 else 0.) )(a,c)
 	else:
+		# just a convolution of a guassian with the σ=0 curve
 		pass
 
 #----------------------------------------------------------------
@@ -132,6 +133,18 @@ def fpt_poisson_tau (b, c):
 		return 4/c**2 * ( np.exp(c) - 1 )
 	else:
 		return 4/c**2 * ( (2*np.exp(-c**2/2/b**2)) / ( np.exp(c)*ss.erfc((c/b+b)/sqrt(2)) + np.exp(-c)*ss.erfc((c/b-b)/sqrt(2)) ) - 1 )
+
+def fpt_2d_poisson_tau (b, c, a):
+	if np.all(np.isinf(b)):
+		return 4/c**2 * ( ss.k0(a*c) / ss.k0(c) - 1 )
+	else:
+		# regularization, not needed :
+		# f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
+		# d = -(a*b)**2/2
+		# sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
+		f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) )
+		integral_D = np.vectorize( lambda a,b,c: sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] )
+		return 4/c**2 * ( ss.k0(a*c) * np.exp(b**2/2) / integral_D(a,b,c) - 1 )
 
 #----------------------------------------------------------------
 # Periodical reset
