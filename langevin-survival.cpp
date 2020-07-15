@@ -205,7 +205,7 @@ void* comp_thread (void* _data) {
 			#ifndef LANGEVIN_OVERDAMPED
 			v += a / part_m * Δt;
 			#endif
-			x = x + v * Δt; // Δx ~= sqrt(D.Δt)
+			x = x + v * Δt; // Δx ~= sqrt(D.Δt), 1e-3 for D=1 and Δt=1e-6
 			
 			// record x position reached
 			#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(FPT_DEMISPACE)
