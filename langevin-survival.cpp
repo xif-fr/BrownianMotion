@@ -89,8 +89,6 @@ void* comp_thread (void* _data) {
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
-	double t_pause = Inf;
-	_register_var(_thread, "t_pause", &t_pause);
 	
 	double init_pos_sigma = 0.1; // gaussian distribution of initial position
 	_register_var(_thread, "x0sigma", &init_pos_sigma);
@@ -113,9 +111,10 @@ void* comp_thread (void* _data) {
 		if (_thread.regular_callback)
 			_thread.regular_callback(_thread.id_for_callback, step, t);
 		
-		::pthread_mutex_unlock(&_thread.mutex_global);
-		::usleep(pause ? 1000000 : 100);
-		::pthread_mutex_lock(&_thread.mutex_global);
+		pysimul_mutex_unlock(&_thread);
+		if (pause)
+			::usleep(1000000);
+		pysimul_mutex_lock(&_thread);
 		
 		// Let's compute one entire trajectory
 		
@@ -126,20 +125,6 @@ void* comp_thread (void* _data) {
 		#ifndef LANGEVIN_OVERDAMPED
 		vec2_t v;
 		#endif
-		
-		auto init_pos = [&] () -> void {
-			x =  pt2_t{
-				.x = init_pos_sigma * normal_distrib_gen(rng),
-				.y = init_pos_sigma * normal_distrib_gen(rng)
-			};
-			#ifndef LANGEVIN_OVERDAMPED
-			v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
-				.r = sqrt(2*T/part_m),
-				.θ = unif01(rng)*2*π
-			};
-			#endif
-		};
-		init_pos();
 		
 		double max_x_reached = 0.;
 		bool survdist_pos_done = false;
@@ -160,6 +145,31 @@ void* comp_thread (void* _data) {
 		double last_x;
 		std::array<bool,N_targets> targets_reached;
 		targets_reached.fill(false);
+
+		auto init_pos = [&] () -> void {
+//			do {
+			x = pt2_t{
+				.x = init_pos_sigma * normal_distrib_gen(rng),
+				.y = init_pos_sigma * normal_distrib_gen(rng)
+			};
+//			} while (!(x - pt2_t{ first_times_xtarg[0], 0 }) < Rtol*Rtol);
+			#ifndef LANGEVIN_OVERDAMPED
+			v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
+				.r = sqrt(2*T/part_m),
+				.θ = unif01(rng)*2*π
+			};
+			#endif
+			#if defined(FPT_INTERVAL) && defined(TARGET_2D_CYL)
+			for (uint8_t i = 0; i < N_targets; i++) {
+				bool target = !(x - pt2_t{ first_times_xtarg[i], 0 }) < Rtol*Rtol;
+				if (target) {
+					targets_reached[i] = true; // when initialized into the target, we forget about it
+					target_reached = std::count(targets_reached.begin(), targets_reached.end(), true);
+				}
+			}
+			#endif
+		};
+		init_pos();
 		
 		#ifdef ENABLE_PERIODICAL_RESET
 		uint32_t n_period = 1;
@@ -302,6 +312,6 @@ void* comp_thread (void* _data) {
 		n_trajectories++;
 	}
 	
-	::pthread_mutex_unlock(&_thread.mutex_global);
+	pysimul_mutex_unlock(&_thread);
 	return nullptr;
 }

@@ -58,7 +58,7 @@ void pysimul_start (simul_thread_info_t* _thread) {
 	_thread->win_evts = std::queue<sf::Event>();
 	#endif
 	_thread->vars.clear();
-	::pthread_mutex_lock(&(_thread->mutex_global)); // locked for the thread in advance
+	_thread->ticket_queue_tail = 1; // give a ticket to the thread in advance
 	pthread_attr_t attr;
 	::pthread_attr_init(&attr);
 	::pthread_create(&(_thread->thread_id), &attr, &comp_thread, _thread);
@@ -66,7 +66,19 @@ void pysimul_start (simul_thread_info_t* _thread) {
 }
 
 void pysimul_mutex_lock (simul_thread_info_t* _thread) {
-	::pthread_mutex_lock(&(_thread->mutex_global));
+	unsigned long queue_me;
+	::pthread_mutex_lock(&_thread->ticket_mutex);
+	queue_me = _thread->ticket_queue_tail++;
+	while (queue_me != _thread->ticket_queue_head)
+		::pthread_cond_wait(&_thread->ticket_cond, &_thread->ticket_mutex);
+	::pthread_mutex_unlock(&_thread->ticket_mutex);
+}
+
+void pysimul_mutex_unlock (simul_thread_info_t* _thread) {
+	::pthread_mutex_lock(&_thread->ticket_mutex);
+	_thread->ticket_queue_head++;
+	::pthread_cond_broadcast(&_thread->ticket_cond);
+	::pthread_mutex_unlock(&_thread->ticket_mutex);
 }
 
 pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key) {
@@ -163,10 +175,6 @@ void pysimul_reset_series (simul_thread_info_t* _thread, const char* key) {
 		*std::get<3>(t) = 0;
 	} else
 		throw std::runtime_error("pysimul_reset_series : var is not series or distrib");
-}
-
-void pysimul_mutex_unlock (simul_thread_info_t* _thread) {
-	::pthread_mutex_unlock(&(_thread->mutex_global));
 }
 
 uint8_t pysimul_event_poll (simul_thread_info_t* _thread) {

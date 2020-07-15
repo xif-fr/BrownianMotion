@@ -32,7 +32,9 @@ struct simul_thread_info_t {
 	};
 	std::map<std::string, std::pair<var_type_t,void*>> vars;
 	std::map<std::string, double> vars_pre_init;
-	pthread_mutex_t mutex_global = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_t ticket_mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t ticket_cond = PTHREAD_COND_INITIALIZER; // see https://stackoverflow.com/questions/12685112/pthreads-thread-starvation-caused-by-quick-re-locking
+	unsigned long ticket_queue_head = 0, ticket_queue_tail = 0;
 	pthread_t thread_id;
 	#ifndef SIMUL_HEADLESS
 	sf::RenderWindow* win;
@@ -42,6 +44,11 @@ struct simul_thread_info_t {
 	std::function<void(uint64_t id, size_t step, double t)> regular_callback;
 	bool do_quit = false;
 };
+
+extern "C" {
+void pysimul_mutex_lock (simul_thread_info_t*);
+void pysimul_mutex_unlock (simul_thread_info_t*);
+}
 
 template <typename number_t> void _register_var (simul_thread_info_t& _thread, const char* key, number_t* var) {
 	std::map<std::string,double>::iterator it;
