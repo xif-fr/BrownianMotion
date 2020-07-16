@@ -7,7 +7,7 @@
 // This is the boiled-down version of langevin-survival.cpp with the following flags :
 // LANGEVIN_OVERDAMPED, TARGET_2D_CYL, FPT_INTERVAL, ENABLE_POISSON_RESET
 
-constexpr size_t N_targets = 7;
+constexpr size_t N_targets = 1;
 const size_t pysimul_N = N_targets;
 
 void* comp_thread (void* _data) {
@@ -40,20 +40,17 @@ void* comp_thread (void* _data) {
 	const double proba_reset_step = Δt * reset_rate;
 
 	// First passage time at the target @ x=survdist_time_pos
-	std::array<std::vector<double>,N_targets> first_times;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40 };
-	for (size_t i = 0; i < N_targets; i++) {
-		auto s = fmt::format("first_times-{}", i);
-		_register_var(_thread, s.c_str(), &first_times[i]);
-	}
+	std::vector<double> first_time;
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.2 };
+	_register_var(_thread, "first_times-0", &first_time);
 	auto _first_times_xtarg = first_times_xtarg;
 	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
 
 	// 2D circular target with "tolerence radius" Rtol around x=x_targ,y=0
 	double Rtol;
 	_register_var(_thread, "2D-Rtol", &Rtol);
-	auto check_is_in_target = [&] (pt2_t x, double Rtarg) -> bool {
-		return !(x - pt2_t{ Rtarg, 0 }) < Rtol*Rtol;
+	auto check_is_in_target = [&Rtol,&first_times_xtarg] (pt2_t x) -> bool {
+		return !(x - pt2_t{ first_times_xtarg[0], 0 }) < Rtol*Rtol;
 	};
 
 	while (not _thread.do_quit) {
@@ -68,27 +65,17 @@ void* comp_thread (void* _data) {
 		t = 0;
 		pt2_t x;
 		
-		bool all_targets_reached = false;
-		std::array<bool,N_targets> targets_reached;
-		targets_reached.fill(false);
-		auto set_target_reached = [&] (uint8_t i_targ) {
-			targets_reached[i_targ] = true;
-			all_targets_reached = (std::count(targets_reached.begin(), targets_reached.end(), true) == N_targets);
-		};
-
 		auto init_pos = [&] () -> void {
-			x = pt2_t{
-				.x = init_pos_sigma * normal_distrib_gen(rng),
-				.y = init_pos_sigma * normal_distrib_gen(rng)
-			};
-			for (uint8_t i = 0; i < N_targets; i++) {
-				if (check_is_in_target(x, first_times_xtarg[i])) 
-					set_target_reached(i); // when initialized into the target, we forget about it
-			}
+			do {
+				x = pt2_t{
+					.x = init_pos_sigma * normal_distrib_gen(rng),
+					.y = init_pos_sigma * normal_distrib_gen(rng)
+				};
+			} while (check_is_in_target(x));
 		};
 		init_pos();
 		
-		while (not all_targets_reached) {
+		while (true) {
 			
 			// poissonian resetting
 			if (unif01(rng) < proba_reset_step) 
@@ -97,14 +84,10 @@ void* comp_thread (void* _data) {
 			// Langevin equation implementation
 			x = x + sqrt(2 * D * Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
 			
-			// first passage time distribution for each target at x=first_times_xtarg[i]
-			for (uint8_t i = 0; i < N_targets; i++) {
-				if (not targets_reached[i]) {
-					if (check_is_in_target(x, first_times_xtarg[i])) {
-						set_target_reached(i);
-						first_times[i].push_back(t); // register the FPT
-					}
-				}
+			// target reached -> first passage time
+			if (check_is_in_target(x)) {
+				first_time.push_back(t); // register the FPT
+				break;
 			}
 			
 			t += Δt;

@@ -26,3 +26,11 @@ langevin-survival-pysimul:
 	python3 cffi-build.py
 	rm *.o
 	rm pysimul_ffi.c
+
+langevin-survival-simplified2d-pysimul:
+	echo "Compiling Langevin survival simulation core..."
+	clang++ $(CXX_FLAGS) -DSIMUL_HEADLESS langevin-survival-simplified-2d.cpp pysimul-common.cpp pysimul-util.cpp vecs2.cpp $(LD_FLAGS) -shared -o libpysimul.so
+	echo "Building CFFI module..."
+	python3 cffi-build.py
+	rm *.o
+	rm pysimul_ffi.c

@@ -134,18 +134,28 @@ def fpt_poisson_tau (b, c):
 	else:
 		return 4/c**2 * ( (2*np.exp(-c**2/2/b**2)) / ( np.exp(c)*ss.erfc((c/b+b)/sqrt(2)) + np.exp(-c)*ss.erfc((c/b-b)/sqrt(2)) ) - 1 )
 
-def fpt_2d_poisson_tau (b, c, a):
+def fpt_2d_poisson_tau (b, c, a, do_warn_err=False):
 	a = np.fmin(a, 1-1e-10)
-	if np.all(np.isinf(b)):
-		return 4/c**2 * ( ss.k0(a*c) / ss.k0(c) - 1 )
-	else:
-		# regularization, not needed :
-		# f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
-		# d = -(a*b)**2/2
-		# sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
-		f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) )
-		integral_D = np.vectorize( lambda a,b,c: sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] )
-		return 4/c**2 * ( ss.k0(a*c) * np.exp(b**2/2) / integral_D(a,b,c) - 1 )
+	def func (a,b,c):
+		if b > 18:
+			if not np.isinf(b):
+				print("warning : approximating b={:.3f} by b=inf".format(b)) 
+			return ss.k0(a*c) / ss.k0(c) - 1
+		else:
+			# regularization, not needed :
+			# f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
+			# d = -(a*b)**2/2
+			# np.exp(-b**2/2) * sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
+			f = lambda z, b,c: z * np.exp(-b**2/2-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) )
+			I, Ierr = sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)
+			x = ss.k0(a*c) / I - 1
+			if do_warn_err:
+				xp = ss.k0(a*c) / (I+Ierr) - 1
+				xm = ss.k0(a*c) / (I-Ierr) - 1
+				if abs((xp-xm)/x) > 1e-2:
+					print("warning : rel. error can be >1% for b={:.3f}, c={:.3f}, a={:.3f}".format(b,c,a))          
+			return x
+	return 4/c**2 * np.vectorize(func)(a,b,c)
 
 #----------------------------------------------------------------
 # Periodical reset
