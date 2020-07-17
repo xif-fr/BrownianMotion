@@ -21,7 +21,7 @@ void* comp_thread (void* _data) {
 	double t = 0;
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
-	constexpr double Δt = 1e-6;
+	constexpr double Δt = 1e-8;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
@@ -66,12 +66,15 @@ void* comp_thread (void* _data) {
 		pt2_t x;
 		
 		auto init_pos = [&] () -> void {
-			do {
-				x = pt2_t{
-					.x = init_pos_sigma * normal_distrib_gen(rng),
-					.y = init_pos_sigma * normal_distrib_gen(rng)
-				};
-			} while (check_is_in_target(x));
+			reinit:
+			x = pt2_t{
+				.x = init_pos_sigma * normal_distrib_gen(rng),
+				.y = init_pos_sigma * normal_distrib_gen(rng)
+			};
+			if (check_is_in_target(x)) {	// we must not reinit the particle onto the target
+		//		goto reinit;
+				t = 0;	// equivalent to forget the trajectory; introduces a bias towards smaller FPT
+			}
 		};
 		init_pos();
 		
