@@ -34,10 +34,20 @@ void* comp_thread (void* _data) {
 	double init_pos_sigma;
 	_register_var(_thread, "x0sigma", &init_pos_sigma);
 	
+	#define ENABLE_PERIODICAL_RESET
+
 	// Poissonian resetting
+	#ifdef ENABLE_POISSON_RESET
 	double reset_rate;
 	_register_var(_thread, "reset_rate", &reset_rate);
 	const double proba_reset_step = Δt * reset_rate;
+	#endif
+	
+	// Periodical resetting
+	#ifdef ENABLE_PERIODICAL_RESET
+	double reset_period = 1;
+	_register_var(_thread, "reset_period", &reset_period);
+	#endif
 
 	// First passage time at the target @ x=survdist_time_pos
 	std::vector<double> first_time;
@@ -64,6 +74,9 @@ void* comp_thread (void* _data) {
 		
 		t = 0;
 		pt2_t x;
+		#ifdef ENABLE_PERIODICAL_RESET
+		uint32_t n_period = 1;
+		#endif
 		
 		auto init_pos = [&] () -> void {
 			reinit:
@@ -80,8 +93,16 @@ void* comp_thread (void* _data) {
 		while (true) {
 			
 			// poissonian resetting
+			#ifdef ENABLE_POISSON_RESET
 			if (unif01(rng) < proba_reset_step) 
 				init_pos();
+			#endif
+			#ifdef ENABLE_PERIODICAL_RESET
+			if (t > reset_period*n_period) {
+				init_pos();
+				n_period++;
+			}
+			#endif
 			
 			// Langevin equation implementation
 			x = x + sqrt(2 * D * Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };

@@ -134,29 +134,6 @@ def fpt_poisson_tau (b, c):
 	else:
 		return 4/c**2 * ( (2*np.exp(-c**2/2/b**2)) / ( np.exp(c)*ss.erfc((c/b+b)/sqrt(2)) + np.exp(-c)*ss.erfc((c/b-b)/sqrt(2)) ) - 1 )
 
-# def fpt_2d_poisson_tau (b, c, a, do_warn_err=False):
-# 	a = np.fmin(a, 1-1e-10)
-# 	def func (a,b,c):
-# 		if b > 18:
-# 			if not np.isinf(b):
-# 				print("warning : approximating b={:.3f} by b=inf".format(b)) 
-# 			return ss.k0(a*c) / ss.k0(c) - 1
-# 		else:
-# 			# regularization, not needed :
-# 			# f = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
-# 			# d = -(a*b)**2/2
-# 			# np.exp(-b**2/2) * sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
-# 			f = lambda z, b,c: z * np.exp(-b**2/2-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) )
-# 			I, Ierr = sint.quad(f, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)
-# 			x = ss.k0(a*c) / I - 1
-# 			if do_warn_err:
-# 				xp = ss.k0(a*c) / (I+Ierr) - 1
-# 				xm = ss.k0(a*c) / (I-Ierr) - 1
-# 				if abs((xp-xm)/x) > 1e-2:
-# 					print("warning : rel. error can be >1% for b={:.3f}, c={:.3f}, a={:.3f}".format(b,c,a))          
-# 			return x
-# 	return 4/c**2 * np.vectorize(func)(a,b,c)
-
 def fpt_2d_poisson_tau (b, c, a, do_warn_err=False):
 	a = np.fmin(a, 1-1e-10)
 	def func (a,b,c):
@@ -165,10 +142,15 @@ def fpt_2d_poisson_tau (b, c, a, do_warn_err=False):
 				print("warning : approximating b={:.3f} by b=inf".format(b)) 
 			return ss.k0(a*c) / ss.k0(c) - 1
 		else:
+			# regularization of fD, not needed :
+# 			# fDreg = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
+# 			# d = -(a*b)**2/2
+# 			# np.exp(-b**2/2) * sint.quad(fD, a*b, np.inf, args=(b,c))[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
 			fg = lambda z, b: z * np.exp(-b**2/2-z**2/2) * ss.i0(b*z)
 			g, gerr = sint.quad(fg, a*b, max(10,2*b), args=(b), epsrel=1e-8)
 			fD = lambda z, b,c: z * np.exp(-b**2/2-z**2/2) * ss.k0(c/b*z) * ss.i0(b*z)
-			D, Derr = sint.quad(fD, a*b, max(10,2*b), args=(b,c), epsrel=1e-8) 
+			D, Derr = sint.quad(fD, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)
+			# todo error checks
 			return 1/( 1 -g + D/ss.k0(a*c) ) - 1
 	return 4/c**2 * np.vectorize(func)(a,b,c)
 
@@ -212,3 +194,24 @@ def fpt_periodic_disrib (t, rT, b, c):
 		int_exp_dterf = lambda b,c,k,t: sint.quad( lambda u, b,c,k,t: np.abs(1-u/b) * np.exp(-u**2/2 -c**2*(1-u/b)**2*rT/(t-k*rT)), -np.inf, +np.inf, args=(b,c,k,t), epsrel=1e-3 )[0]
 		int_exp_dterf = np.vectorize( int_exp_dterf )
 		return c * (1/sqrt(2*π))**(k+1) * int_exp_erf(b,c)**k * prefact_dt_erf(k,t) * int_exp_dterf(b,c,k,t)
+
+def fpt_2d_periodical_tau (b, c, a, do_warn_err=False):
+	if np.all(np.isinf(b)):
+		def tau_binf (a, c):
+			int_2_rem = lambda a,cutoff: log(1/a)*(π/2+np.arctan(2/π*(np.euler_gamma+np.log(cutoff/2))))
+			# numerator :
+			integrand = lambda x, a,c: (1-np.exp(-x**2/(4*a**2*c**2))) / x**3 * (ss.y0(x/a)*ss.j0(x)-ss.j0(x/a)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2) - log(1/a)/(2*a**2*c**2*π) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2) / x
+			                         # |------------------- g1 -------------------------------------------------------------------------------------|   |-------------------------- g2 ---------------------------------------------|
+			cutoff = 100*max(1,c)
+			I = sint.quad( integrand, 0, cutoff, args=(a,c), epsrel=1e-5, limit=1000 )[0]
+			int_num = I + int_2_rem(a,cutoff)/(4*a**2*c**2)
+			# denominator :
+			integrand = lambda x, a,c: ( np.exp(-x**2/(4*a**2*c**2)) * (ss.y0(x/a)*ss.j0(x)-ss.j0(x/a)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2) - 2/π * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2) ) / x
+			                         #   |----------------- f1 ----------------------------------------------------------------------------|   |-------------------------- f2 -------------------------------|
+			cutoff = max(10,2*c**2)
+			I = sint.quad( integrand, 0, cutoff, args=(a,c), epsrel=1e-7, limit=1000 )[0]
+			den = 1 - 2/π * (I + int_2_rem(a,cutoff))
+			return 8*a**2/π * int_num / den
+		return np.vectorize(tau_binf)(a, c)
+	else:
+		pass # TODO

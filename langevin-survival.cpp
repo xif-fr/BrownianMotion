@@ -4,7 +4,7 @@
 #include <vector>
 #include <algorithm>
 
-constexpr size_t N_targets = 10;
+constexpr size_t N_targets = 4;
 const size_t pysimul_N = N_targets;
 
 #define LANGEVIN_OVERDAMPED
@@ -12,7 +12,7 @@ const size_t pysimul_N = N_targets;
 //#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 //#define FPT_JUMP_ACROSS
 #define FPT_INTERVAL
-#define ENABLE_POISSON_RESET
+#define ENABLE_PERIODICAL_RESET
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
@@ -68,7 +68,7 @@ void* comp_thread (void* _data) {
 	// First passage time at the target @ x=survdist_time_pos
 	#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL) || defined(FPT_DEMISPACE)
 	std::array<std::vector<double>,N_targets> first_times;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50 };
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.0888888, 0.10, 0.12, 0.16 };
 	constexpr double xtarg_tol = 0.001;
 	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	for (size_t i = 0; i < N_targets; i++) {
@@ -85,7 +85,7 @@ void* comp_thread (void* _data) {
 	size_t n_trajectories = 0;
 	_register_var(_thread, "n_trajectories", &n_trajectories);
 	
-	constexpr double Δt = 1e-6;//50 * 1.5e-6;
+	constexpr double Δt = 1e-7;//50 * 1.5e-6;
 	_register_const(_thread, "Delta_t", Δt);
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
@@ -147,26 +147,15 @@ void* comp_thread (void* _data) {
 		targets_reached.fill(false);
 
 		auto init_pos = [&] () -> void {
-//			do {
 			x = pt2_t{
 				.x = init_pos_sigma * normal_distrib_gen(rng),
 				.y = init_pos_sigma * normal_distrib_gen(rng)
 			};
-//			} while (!(x - pt2_t{ first_times_xtarg[0], 0 }) < Rtol*Rtol);
 			#ifndef LANGEVIN_OVERDAMPED
 			v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
 				.r = sqrt(2*T/part_m),
 				.θ = unif01(rng)*2*π
 			};
-			#endif
-			#if defined(FPT_INTERVAL) && defined(TARGET_2D_CYL)
-			for (uint8_t i = 0; i < N_targets; i++) {
-				bool target = !(x - pt2_t{ first_times_xtarg[i], 0 }) < Rtol*Rtol;
-				if (target) {
-					targets_reached[i] = true; // when initialized into the target, we forget about it
-					target_reached = std::count(targets_reached.begin(), targets_reached.end(), true);
-				}
-			}
 			#endif
 		};
 		init_pos();
