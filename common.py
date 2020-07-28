@@ -195,23 +195,43 @@ def fpt_periodic_disrib (t, rT, b, c):
 		int_exp_dterf = np.vectorize( int_exp_dterf )
 		return c * (1/sqrt(2*π))**(k+1) * int_exp_erf(b,c)**k * prefact_dt_erf(k,t) * int_exp_dterf(b,c,k,t)
 
-def fpt_2d_periodical_tau (b, c, a, do_warn_err=False):
+def fpt_2d_periodical_tau (b, c, a, do_warn_err=False, use_cache=None):
+	if use_cache is not None and np.ndim(c) == 1 and np.isscalar(a) and np.isscalar(b):
+		import pandas as pd
+		import scipy.interpolate
+		df = pd.read_csv(use_cache+"a{:.4f}_b{:.4f}".format(a,b), sep=',')
+		tck = scipy.interpolate.splrep(df['c'], df['tau'])
+		return scipy.interpolate.splev(c, tck)
+	
+	int_2_rem = lambda cutoff: π/2+np.arctan(2/π*(np.euler_gamma+np.log(cutoff/2)))
 	if np.all(np.isinf(b)):
 		def tau_binf (a, c):
-			int_2_rem = lambda a,cutoff: log(1/a)*(π/2+np.arctan(2/π*(np.euler_gamma+np.log(cutoff/2))))
 			# numerator :
 			integrand = lambda x, a,c: (1-np.exp(-x**2/(4*a**2*c**2))) / x**3 * (ss.y0(x/a)*ss.j0(x)-ss.j0(x/a)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2) - log(1/a)/(2*a**2*c**2*π) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2) / x
-			                         # |------------------- g1 -------------------------------------------------------------------------------------|   |-------------------------- g2 ---------------------------------------------|
+			                         # |------------------- g1 -------------------------------------------------------------------------------------|   |-------------------------- g2 -----------------------------------------|
 			cutoff = 100*max(1,c)
 			I = sint.quad( integrand, 0, cutoff, args=(a,c), epsrel=1e-5, limit=1000 )[0]
-			int_num = I + int_2_rem(a,cutoff)/(4*a**2*c**2)
+			int_num = I + log(1/a)*int_2_rem(cutoff)/(4*a**2*c**2)
 			# denominator :
 			integrand = lambda x, a,c: ( np.exp(-x**2/(4*a**2*c**2)) * (ss.y0(x/a)*ss.j0(x)-ss.j0(x/a)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2) - 2/π * log(1/a) / (1 + 4/π**2 * (np.euler_gamma+np.log(x/2))**2) ) / x
 			                         #   |----------------- f1 ----------------------------------------------------------------------------|   |-------------------------- f2 -------------------------------|
 			cutoff = max(10,2*c**2)
 			I = sint.quad( integrand, 0, cutoff, args=(a,c), epsrel=1e-7, limit=1000 )[0]
-			den = 1 - 2/π * (I + int_2_rem(a,cutoff))
+			den = 1 - 2/π * (I + log(1/a)*int_2_rem(cutoff))
 			return 8*a**2/π * int_num / den
 		return np.vectorize(tau_binf)(a, c)
 	else:
-		pass # TODO
+		def tau_b (a, b, c):
+			A1 = lambda a,b: sint.quad( lambda z, a,b: z * exp(-b**2/2-z**2/2) * ss.i0(b*z) * log(z/a/b), a*b, 10+b, args=(a,b), epsrel=1e-10, limit=1000 )[0]
+			# numerator :
+			integrand = lambda z,x, a,b,c: z * exp(-b**2/2-z**2/2) * ss.i0(b*z) * (  (1-exp(-x**2/(4*a**2*c**2)))/x**3 * (ss.y0(x*z/a/b)*ss.j0(x)-ss.j0(x*z/a/b)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2)  -  log(z/a/b)/(2*a**2*c**2*π) / (1 + 4/π**2 * (np.euler_gamma+log(x/2))**2) / x  )
+			cutoff = 100*max(1,c)
+			I = sint.dblquad( integrand, 0, cutoff, lambda x:a*b, lambda x:10+b, args=(a,b,c), epsrel=1e-8 )[0]
+			int_num = I + A1(a,b)*int_2_rem(cutoff)/(4*a**2*c**2)
+			# denominator :
+			integrand = lambda z,x, a,b,c: z * exp(-b**2/2-z**2/2) * ss.i0(b*z) * (  exp(-x**2/(4*a**2*c**2)) / x      * (ss.y0(x*z/a/b)*ss.j0(x)-ss.j0(x*z/a/b)*ss.y0(x)) / (ss.y0(x)**2+ss.j0(x)**2)  -  log(z/a/b) * 2/π           / (1 + 4/π**2 * (np.euler_gamma+log(x/2))**2) / x  )
+			cutoff = max(10,2*c**2)
+			I = sint.dblquad( integrand, 0, cutoff, lambda z:a*b, lambda z:10+b, args=(a,b,c), epsrel=1e-8 )[0]
+			den = 1 - 2/π*(I + A1(a,b)*int_2_rem(cutoff))
+			return 8*a**2/π * int_num / den
+		return np.vectorize(tau_b)(a, b, c)
