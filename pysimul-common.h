@@ -50,6 +50,12 @@ void pysimul_mutex_lock (simul_thread_info_t*);
 void pysimul_mutex_unlock (simul_thread_info_t*);
 }
 
+struct simul_thread_raii_mutex_unlock {
+	simul_thread_info_t* thread_info;
+	simul_thread_raii_mutex_unlock(simul_thread_info_t* thread_info) : thread_info(thread_info) {}
+	~simul_thread_raii_mutex_unlock() { pysimul_mutex_unlock(thread_info); }
+};
+
 template <typename number_t> void _register_var (simul_thread_info_t& _thread, const char* key, number_t* var) {
 	std::map<std::string,double>::iterator it;
 	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end())

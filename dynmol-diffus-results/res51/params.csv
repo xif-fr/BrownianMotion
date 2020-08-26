@@ -1,0 +1,11 @@
+N_gas,800
+Delta_t,1.5e-6
+d0,0.03
+E0,2.0
+cont_r,0.6762
+part_d,0.06
+part_E0,2.0
+part_m,50.0
+target_T,300
+t_beg,0.17
+t_end,0.28

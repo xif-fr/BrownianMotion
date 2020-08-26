@@ -202,7 +202,7 @@ def fpt_2d_periodical_tau (b, c, a, do_warn_err=False, use_cache=None):
 		df = pd.read_csv(use_cache+"a{:.4f}_b{:.4f}".format(a,b), sep=',')
 		tck = scipy.interpolate.splrep(df['c'], df['tau'])
 		return scipy.interpolate.splev(c, tck)
-	
+
 	int_2_rem = lambda cutoff: π/2+np.arctan(2/π*(np.euler_gamma+np.log(cutoff/2)))
 	if np.all(np.isinf(b)):
 		def tau_binf (a, c):
@@ -233,5 +233,9 @@ def fpt_2d_periodical_tau (b, c, a, do_warn_err=False, use_cache=None):
 			cutoff = max(10,2*c**2)
 			I = sint.dblquad( integrand, 0, cutoff, lambda z:a*b, lambda z:10+b, args=(a,b,c), epsrel=1e-8 )[0]
 			den = 1 - 2/π*(I + A1(a,b)*int_2_rem(cutoff))
+			# F1 = lambda a,b,x: exp(-b**2/2) * sint.quad(lambda z,a,b,x: z * exp(-z**2/2) * ss.y0(x*z/a/b) * ss.i0(b*z), a*b, 10+b, args=(a,b,x), epsrel=1e-8, limit=10000)[0]
+			# F2 = lambda a,b,x: exp(-b**2/2) * sint.quad(lambda z,a,b,x: z * exp(-z**2/2) * ss.j0(x*z/a/b) * ss.i0(b*z), a*b, 10+b, args=(a,b,x), epsrel=1e-8, limit=10000)[0]
+			# integrand = lambda x, a,b,c: exp(-x**2/(4*a**2*c**2))/x * ( F1(a,b,x)*ss.j0(x) - F2(a,b,x)*ss.y0(x) ) / ( ss.j0(x)**2 + ss.y0(x)**2 )
+			# den = 1 - 2/π*sint.quad( integrand, 0, cutoff, args=(a,b,c), epsrel=1e-5, limit=200 )[0]
 			return 8*a**2/π * int_num / den
 		return np.vectorize(tau_b)(a, b, c)

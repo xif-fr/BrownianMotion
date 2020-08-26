@@ -4,33 +4,27 @@
 #include <vector>
 #include <algorithm>
 
-constexpr size_t N_targets = 4;
+constexpr size_t N_targets = 10;
 const size_t pysimul_N = N_targets;
 
 #define LANGEVIN_OVERDAMPED
-#define TARGET_2D_CYL
+//#define TARGET_2D_CYL
 //#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
 //#define FPT_JUMP_ACROSS
 #define FPT_INTERVAL
 #define ENABLE_PERIODICAL_RESET
+#define INPUT_DATA_FILE
+
+#ifdef INPUT_DATA_FILE
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
-	
-	#ifndef LANGEVIN_OVERDAMPED
-	double part_m = 10;
-	_register_var(_thread, "part_m", &part_m);
-	#endif
-	double γ = 600;
-	_register_var(_thread, "gamma", &γ);
-	double T = 10;
-	_register_var(_thread, "T", &T);
-	
-	std::random_device _rd;
-	std::mt19937 rng (_rd());
-	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
-	std::uniform_real_distribution<> unif01 (0, 1);
-	
+	simul_thread_raii_mutex_unlock _mutex_unlock(&_thread);
+
 	// 2D circular target with "tolerence radius" Rtol around x=x_targ,y=0
 	// By default, only 1 dimension is considered and targets are simply x=cst lines
 	#ifdef TARGET_2D_CYL
@@ -68,7 +62,7 @@ void* comp_thread (void* _data) {
 	// First passage time at the target @ x=survdist_time_pos
 	#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL) || defined(FPT_DEMISPACE)
 	std::array<std::vector<double>,N_targets> first_times;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.0888888, 0.10, 0.12, 0.16 };
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };//{ 0.0888888, 0.10, 0.12, 0.16 };
 	constexpr double xtarg_tol = 0.001;
 	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	for (size_t i = 0; i < N_targets; i++) {
@@ -90,6 +84,22 @@ void* comp_thread (void* _data) {
 	uint8_t pause = 0;
 	_register_var(_thread, "pause", &pause);
 	
+	#ifndef INPUT_DATA_FILE
+
+	#ifndef LANGEVIN_OVERDAMPED
+	double part_m = 10;
+	_register_var(_thread, "part_m", &part_m);
+	#endif
+	double γ = 600;
+	_register_var(_thread, "gamma", &γ);
+	double T = 10;
+	_register_var(_thread, "T", &T);
+	
+	std::random_device _rd;
+	std::mt19937 rng (_rd());
+	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
+	std::uniform_real_distribution<> unif01 (0, 1);
+
 	double init_pos_sigma = 0.1; // gaussian distribution of initial position
 	_register_var(_thread, "x0sigma", &init_pos_sigma);
 		
@@ -104,6 +114,25 @@ void* comp_thread (void* _data) {
 	#ifdef ENABLE_PERIODICAL_RESET
 	double reset_period = 1;
 	_register_var(_thread, "reset_period", &reset_period);
+	#endif
+
+	#else
+
+	void* faddr_base = nullptr;
+	size_t fsize = 0;
+	{
+		int fd = ::open("../dati_MFPT/20-01-10/qpd_Ttrap50ms_Ttot200ms_traj_data.bin", O_RDONLY);
+		if (fd == -1) { ::perror("can't open data file"); return nullptr; }
+		struct stat sb;
+		::fstat(fd, &sb);
+		fsize = sb.st_size;
+		faddr_base = ::mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, /*offset*/0);
+		if (faddr_base == MAP_FAILED) { ::perror("can't mmap data file"); return nullptr; }
+		::close(fd);
+		::puts("successfully opened trajectory file");
+	}
+	void* faddr_curr = faddr_base;
+
 	#endif
 	
 	while (not _thread.do_quit) {
@@ -121,9 +150,11 @@ void* comp_thread (void* _data) {
 		step = 0;
 		t = 0;
 		
+		#ifndef INPUT_DATA_FILE
 		pt2_t x;
 		#ifndef LANGEVIN_OVERDAMPED
 		vec2_t v;
+		#endif
 		#endif
 		
 		double max_x_reached = 0.;
@@ -146,6 +177,7 @@ void* comp_thread (void* _data) {
 		std::array<bool,N_targets> targets_reached;
 		targets_reached.fill(false);
 
+		#ifndef INPUT_DATA_FILE
 		auto init_pos = [&] () -> void {
 			x = pt2_t{
 				.x = init_pos_sigma * normal_distrib_gen(rng),
@@ -159,6 +191,7 @@ void* comp_thread (void* _data) {
 			#endif
 		};
 		init_pos();
+		#endif
 		
 		#ifdef ENABLE_PERIODICAL_RESET
 		uint32_t n_period = 1;
@@ -170,6 +203,8 @@ void* comp_thread (void* _data) {
 		while (target_reached < N_targets and step < trajectory_step_max_length) {
 		#endif
 			
+			#ifndef INPUT_DATA_FILE
+
 			// resetting
 			#ifdef ENABLE_POISSON_RESET
 			if (unif01(rng) < proba_reset_step) {
@@ -195,6 +230,20 @@ void* comp_thread (void* _data) {
 			v += a / part_m * Δt;
 			#endif
 			x = x + v * Δt; // Δx ~= sqrt(D.Δt), 1e-3 for D=1 and Δt=1e-6
+
+			#else
+
+			int8_t* faddr_next = (int8_t*)faddr_curr + sizeof(double)*2;
+			if (faddr_next - (int8_t*)faddr_base >= fsize) 
+				goto data_exhausted;
+			const pt2_t& x = *(const pt2_t*)faddr_curr;
+			faddr_curr = (void*)faddr_next;
+		//	int spaces = (int)std::max<double>(0, x.x + 0.3)*50;
+		//	for (int i = 0; i < spaces; ++i) putchar(' ');
+		//	putchar('@'); putchar('\n');
+		//	fmt::print("{}\n", x.x);
+
+			#endif
 			
 			// record x position reached
 			#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(FPT_DEMISPACE)
@@ -300,7 +349,16 @@ void* comp_thread (void* _data) {
 		
 		n_trajectories++;
 	}
-	
+
+	#ifdef INPUT_DATA_FILE
+	data_exhausted:
+	::puts("data exhausted");
 	pysimul_mutex_unlock(&_thread);
+	pause = 1;
+	::munmap(faddr_base, fsize);
+	while (not _thread.do_quit) 
+		::usleep(1000000);
+	#endif
+
 	return nullptr;
 }

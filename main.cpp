@@ -24,6 +24,7 @@ void sfml_event_poll (simul_thread_info_t* _thread) {
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
+	simul_thread_raii_mutex_unlock _mutex_unlock(&_thread);
 	
 	::srand((int)::time(nullptr));
 	
@@ -491,6 +492,5 @@ void* comp_thread (void* _data) {
 		step++;
 	}
 	
-	::pthread_mutex_unlock(&_thread.mutex_global);
 	return nullptr;
 }
