@@ -22,6 +22,7 @@ void sfml_event_poll (simul_thread_info_t* _thread) {
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
+	simul_thread_raii_mutex_unlock _mutex_unlock(&_thread);
 
 	#ifndef SIMUL_HEADLESS
 	sf::RenderWindow& win = *_thread.win;
@@ -44,6 +45,7 @@ void* comp_thread (void* _data) {
 	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
 	std::uniform_real_distribution<> unif01 (0, 1);
 	
+	#define ENABLE_HARMONIC_WELL
 	#ifdef ENABLE_HARMONIC_WELL
 	double well_k = 0e4;
 	pt2_t well_center = {0.5, 0.5};
@@ -51,7 +53,7 @@ void* comp_thread (void* _data) {
 	#endif
 	
 	// Stats
-	#undef ENABLE_HIST
+	#define ENABLE_HIST
 	#ifdef ENABLE_HIST
 	std::vector<double> s_t;
 	_register_var(_thread, "sample_t", &s_t);
@@ -90,10 +92,13 @@ void* comp_thread (void* _data) {
 	double t_pause = Inf;
 	_register_var(_thread, "t_pause", &t_pause);
 	
+	#undef POISSONIAN_RESETTING
+	#ifdef POISSONIAN_RESETTING
 	// Poissonian resetting
 	double reset_rate = 0.0002 / Δt;
 	_register_var(_thread, "reset_rate", &reset_rate);
 	const double proba_reset_step = Δt * reset_rate;
+	#endif
 	
 	pt2_t x = pt2_t{0.5,0.5};
 	vec2_t v = {0,0};
@@ -120,9 +125,9 @@ void* comp_thread (void* _data) {
 				_thread.regular_callback(_thread.id_for_callback, step, t);
 		}
 		if (pause) {
-			::pthread_mutex_unlock(&_thread.mutex_global);
+			pysimul_mutex_unlock(&_thread);
 			usleep(100000);
-			::pthread_mutex_lock(&_thread.mutex_global);
+			pysimul_mutex_lock(&_thread);
 		} else {
 		
 			/******************************/
@@ -162,6 +167,7 @@ void* comp_thread (void* _data) {
 			t += Δt;
 			step++;
 			
+			#ifdef POISSONIAN_RESETTING
 			if (unif01(rng) < proba_reset_step) {
 				x = pt2_t{0.5,0.5};
 			//	v = {0,0};
@@ -169,6 +175,7 @@ void* comp_thread (void* _data) {
 				reset_times.push_back(t);
 				#endif
 			}
+			#endif
 			
 			if (t > t_pause) {
 				pause = true;
@@ -179,7 +186,7 @@ void* comp_thread (void* _data) {
 			
 		}
 		if (step%display_period == 0) {
-			::pthread_mutex_unlock(&_thread.mutex_global);
+			pysimul_mutex_unlock(&_thread);
 			
 			#ifndef SIMUL_HEADLESS
 			win.clear(sf::Color::White);
@@ -205,10 +212,9 @@ void* comp_thread (void* _data) {
 			#else
 			usleep(10);
 			#endif
-			::pthread_mutex_lock(&_thread.mutex_global);
+			pysimul_mutex_lock(&_thread);
 		}
 	}
 	
-	::pthread_mutex_unlock(&_thread.mutex_global);
 	return nullptr;
 }
