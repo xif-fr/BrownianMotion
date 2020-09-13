@@ -146,12 +146,10 @@ def fpt_2d_poisson_tau (b, c, a, do_warn_err=False):
 # 			# fDreg = lambda z, b,c: z * np.exp(-z**2/2) * ( ss.k0(c/b*z) * ss.i0(b*z) + np.log(z) )
 # 			# d = -(a*b)**2/2
 # 			# np.exp(-b**2/2) * sint.quad(fD, a*b, np.inf, args=(b,c))[0] - np.exp(d)*np.log(a*b) + ss.expi(d)/2
-			fg = lambda z, b: z * np.exp(-b**2/2-z**2/2) * ss.i0(b*z)
-			g, gerr = sint.quad(fg, a*b, max(10,2*b), args=(b), epsrel=1e-8)
-			fD = lambda z, b,c: z * np.exp(-b**2/2-z**2/2) * ss.k0(c/b*z) * ss.i0(b*z)
-			D, Derr = sint.quad(fD, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)
+			fDg = lambda z, b,c: z * np.exp(-b**2/2-z**2/2) * (ss.k0(c/b*z)/ss.k0(a*c)-1) * ss.i0(b*z)
+			Dg, Dgerr = sint.quad(fDg, a*b, max(10,2*b), args=(b,c), epsrel=1e-8)
 			# todo error checks
-			return 1/( 1 -g + D/ss.k0(a*c) ) - 1
+			return 1/( 1 + Dg ) - 1
 	return 4/c**2 * np.vectorize(func)(a,b,c)
 
 #----------------------------------------------------------------

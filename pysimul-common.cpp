@@ -8,10 +8,25 @@ double rand01 () {
 }
 
 template<> void _register_var<double> (simul_thread_info_t& _thread, const char* key, double* var) {
-	std::map<std::string,double>::iterator it;
-	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end())
-		*var = it->second;
+	decltype(simul_thread_info_t::vars_pre_init)::iterator it;
+	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end()) {
+		if (it->second.first == 8) 
+			*var = *(int64_t*)(it->second.second);
+		else if (it->second.first == simul_thread_info_t::VAR_DOUBLE)
+			*var = *(double*)(it->second.second);
+		// todo : delete and remove entry
+	}
 	_thread.vars.insert({key, {simul_thread_info_t::VAR_DOUBLE, var}});
+}
+
+template<> void _register_var<std::string> (simul_thread_info_t& _thread, const char* key, std::string* var) {
+	decltype(simul_thread_info_t::vars_pre_init)::iterator it;
+	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end()) {
+		if (it->second.first == simul_thread_info_t::VAR_STRING)
+			*var = *(std::string*)(it->second.second);
+		// todo : delete and remove entry
+	}
+	_thread.vars.insert({key, {simul_thread_info_t::VAR_STRING, var}});
 }
 
 template<> void _register_var<std::vector<double>> (simul_thread_info_t& _thread, const char* key, std::vector<double>* var) {
@@ -46,10 +61,6 @@ pysimul_init_data_t pysimul_init () {
 	_thread->regular_callback = nullptr;
 	_thread->id_for_callback = (uint64_t)_thread;
 	return { _thread, pysimul_N };
-}
-
-void pysimul_var_preinit (simul_thread_info_t* _thread, const char* key, double val) {
-	_thread->vars_pre_init[key] = val;
 }
 
 void pysimul_start (simul_thread_info_t* _thread) {
@@ -96,6 +107,11 @@ pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key)
 		case simul_thread_info_t::VAR_N_ARRAY /*-2*/: break;
 		case simul_thread_info_t::VAR_SERIES /*-1*/: r.length = (*(std::vector<double>*)it->second.second).size(); break;
 		case simul_thread_info_t::VAR_DOUBLE /*0*/: r.fval = *(double*)it->second.second; break;
+		case simul_thread_info_t::VAR_STRING /*-4*/: {
+			std::string& str = *(std::string*)it->second.second;
+			r.length = str.length();
+			r.strval = str.c_str();
+		} break;
 		case 1: r.ival = *(int8_t*)it->second.second; break;
 		case 2: r.ival = *(int16_t*)it->second.second; break;
 		case 4: r.ival = *(int32_t*)it->second.second; break;
@@ -104,24 +120,44 @@ pysimul_getvar_t pysimul_get_var (simul_thread_info_t* _thread, const char* key)
 	return r;
 }
 
-void pysimul_set_var_float (struct simul_thread_info_t* _thread, const char* key, double val) {
-	auto v = _thread->vars.at(key);
-	if (v.first == simul_thread_info_t::VAR_DOUBLE)
-		*(double*)v.second = val;
-	else
-		throw std::runtime_error("pysimul_set_var_float : var is not double");
+void pysimul_set_var_float (struct simul_thread_info_t* _thread, uint8_t preinit, const char* key, double val) {
+	if (preinit) {
+		_thread->vars_pre_init.insert({key, {simul_thread_info_t::VAR_DOUBLE, new double(val)}});
+	} else {
+		auto v = _thread->vars.at(key);
+		if (v.first == simul_thread_info_t::VAR_DOUBLE)
+			*(double*)v.second = val;
+		else
+			throw std::runtime_error("pysimul_set_var_float : var is not double");
+	}
 }
 
-void pysimul_set_var_integer (struct simul_thread_info_t* _thread, const char* key, int64_t val) {
-	auto v = _thread->vars.at(key);
-	switch (v.first) {
-		case 0: *(double*)v.second = val; break;
-		case 1: *(int8_t*)v.second = (int8_t)val; break;
-		case 2: *(int16_t*)v.second = (int16_t)val; break;
-		case 4: *(int32_t*)v.second = (int32_t)val; break;
-		case 8: *(int64_t*)v.second = val; break;
-		default:
-			throw std::runtime_error("pysimul_set_var_integer : var is not number");
+void pysimul_set_var_integer (struct simul_thread_info_t* _thread, uint8_t preinit, const char* key, int64_t val) {
+	if (preinit) {
+		_thread->vars_pre_init.insert({key, {(simul_thread_info_t::var_type_t)8, new int64_t(val)}});
+	} else {
+		auto v = _thread->vars.at(key);
+		switch (v.first) {
+			case 0: *(double*)v.second = val; break;
+			case 1: *(int8_t*)v.second = (int8_t)val; break;
+			case 2: *(int16_t*)v.second = (int16_t)val; break;
+			case 4: *(int32_t*)v.second = (int32_t)val; break;
+			case 8: *(int64_t*)v.second = val; break;
+			default:
+				throw std::runtime_error("pysimul_set_var_integer : var is not number");
+		}
+	}
+}
+
+void pysimul_set_var_string (struct simul_thread_info_t* _thread, uint8_t preinit, const char* key, const char* cstr) {
+	if (preinit) {
+		_thread->vars_pre_init.insert({key, {simul_thread_info_t::VAR_STRING, new std::string(cstr)}});
+	} else {
+		auto v = _thread->vars.at(key);
+		if (v.first == simul_thread_info_t::VAR_STRING) 
+			*(std::string*)v.second = std::string(cstr);
+		else
+			throw std::runtime_error("pysimul_set_var_string : var is not string");
 	}
 }
 

@@ -10,8 +10,8 @@ const size_t pysimul_N = N_targets;
 #define LANGEVIN_OVERDAMPED
 //#define TARGET_2D_CYL
 //#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
-//#define FPT_JUMP_ACROSS
-#define FPT_INTERVAL
+#define FPT_JUMP_ACROSS
+//#define FPT_INTERVAL
 #define ENABLE_PERIODICAL_RESET
 #define INPUT_DATA_FILE
 
@@ -120,8 +120,10 @@ void* comp_thread (void* _data) {
 
 	void* faddr_base = nullptr;
 	size_t fsize = 0;
+	std::string file_path = "traj_data.bin";
+	_register_var(_thread, "file_path", &file_path);
 	{
-		int fd = ::open("../dati_MFPT/20-01-10/qpd_Ttrap50ms_Ttot200ms_traj_data.bin", O_RDONLY);
+		int fd = ::open(file_path.c_str(), O_RDONLY);
 		if (fd == -1) { ::perror("can't open data file"); return nullptr; }
 		struct stat sb;
 		::fstat(fd, &sb);
@@ -238,10 +240,11 @@ void* comp_thread (void* _data) {
 				goto data_exhausted;
 			const pt2_t& x = *(const pt2_t*)faddr_curr;
 			faddr_curr = (void*)faddr_next;
-		//	int spaces = (int)std::max<double>(0, x.x + 0.3)*50;
-		//	for (int i = 0; i < spaces; ++i) putchar(' ');
-		//	putchar('@'); putchar('\n');
-		//	fmt::print("{}\n", x.x);
+
+			if (isnan(x.x)) { // reset point, skipped but must be took into account for FPT_JUMP_ACROSS
+				last_x = (*(const pt2_t*)faddr_next).x;  // it is safe to assume that a reset point is not the last point
+				continue;
+			}
 
 			#endif
 			
@@ -342,7 +345,7 @@ void* comp_thread (void* _data) {
 			
 			#endif
 
-			
+			last_x = x.x;
 			t += Δt;
 			step++;
 		}

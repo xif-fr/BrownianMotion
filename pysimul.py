@@ -79,20 +79,21 @@ class PySimul:
 		return value
 
 	def __setitem__(self, key, value):
-		if self.started:
-			if not self._expl_locked:
-				c.pysimul_mutex_lock(self._handle)
-			if isinstance(value, int):
-				c.pysimul_set_var_integer(self._handle, key.encode('ascii'), value)
-			elif isinstance(value, float):
-				c.pysimul_set_var_float(self._handle, key.encode('ascii'), value)
-			else:
-				c.pysimul_mutex_unlock(self._handle)
-				raise TypeError("not a float or int")
-			if not self._expl_locked:
-				c.pysimul_mutex_unlock(self._handle)
+		if self.started and not self._expl_locked:
+			c.pysimul_mutex_lock(self._handle)
+		key = key.encode('ascii')
+		preinit = not self.started
+		if isinstance(value, int):
+			c.pysimul_set_var_integer(self._handle, preinit, key, value)
+		elif isinstance(value, float):
+			c.pysimul_set_var_float(self._handle, preinit, key, value)
+		elif isinstance(value, str):
+			c.pysimul_set_var_string(self._handle, preinit, key, value.encode('ascii'))
 		else:
-			c.pysimul_var_preinit(self._handle, key.encode('ascii'), value)
+			c.pysimul_mutex_unlock(self._handle)
+			raise TypeError("not a float, int or string")
+		if self.started and not self._expl_locked:
+			c.pysimul_mutex_unlock(self._handle)
 
 	def set_Narray_value (self, key, index, value):
 		if not self._expl_locked:
