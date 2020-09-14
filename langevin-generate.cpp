@@ -5,6 +5,7 @@
 #include <utility>
 #include <math.h>
 #define Inf std::numeric_limits<double>::infinity()
+#define NaN std::numeric_limits<double>::signaling_NaN()
 #include <inttypes.h>
 #include "vecs2.hpp"
 #include <unistd.h>
@@ -12,7 +13,26 @@
 
 //#define LANGEVIN_OVERDAMPED
 #define ENABLE_PERIODICAL_RESET
-#define RESET_WITH_TRAPPING
+//#define RESET_WITH_TRAPPING
+//#define SPLIT_FILES
+
+/*********************************************************************************************
+/ Simulation of a brownian trajectory with resetting, using Langevin's equation in 2D,
+/ generating a simple file. Standalone command line programm. Supports periodical resetting
+/ of period `reset_period`, and poissonian resetting with rate `proba_reset_step/Δt`.
+/
+/ Resetting can be either ideal (immediate reinitialization of the particle's position with
+/ variance `init_pos_sigma`²) or be done by simulating an optical trap, that is an harmonic
+/ well with stiffness `k_trap`, during a time `t_trap`, bringing back the particule to the
+/ origin (with variance σ²=T/k), when RESET_WITH_TRAPPING is enabled.
+/
+/ A single file is saved by default, containing successive x and y positions as 64 bits
+/ floating point numbers (and (NaN,NaN) to indicate end of resetting), and ready to be used by
+/ `langevin-survival.cpp` with INPUT_DATA_FILE enabled when ideal resetting. If SPLIT_FILES is
+/ enabled, a sequence of small (~20MB) files is saved, containing successive x and y positions
+/ and a byte indicating if the trapping well is active (x0,y0,trapping0,y1,y1,trapping1,...),
+/ ready to be used by `exp-data-diffus-analysis.ipynb`.
+/ ********************************************************************************************/
 
 #include <signal.h>
 volatile bool continue_running = true;
@@ -22,13 +42,15 @@ void interupt_handler (int) {
 
 int main (int argc, char const* argv[]) {
 
-	std::string fname_base = "langevin-trap-traj-xyc";
+	std::string fname_base = "langevin-trap-traj-xyc-";
 	if (argc > 1)
 		fname_base = argv[1];
+	#ifdef SPLIT_FILES
 	size_t f_num = 1;
 	if (argc > 2)
 		f_num = atoi(argv[2]);
 	std::string fname_format = fname_base+"{}";
+	#endif
 	int f_fd = -1;
 	
 	::signal(SIGINT, interupt_handler);
@@ -87,7 +109,7 @@ int main (int argc, char const* argv[]) {
 		t_trap_end = t + t_trap;
 	};
 	#else
-	constexpr double init_pos_sigma = 0.1; // gaussian distribution of initial position
+	constexpr double init_pos_sigma = 0.31622776601683794; // gaussian distribution of initial position
 	auto init_pos = [&] () -> void {
 		x = pt2_t{
 			.x = init_pos_sigma * normal_distrib_gen(rng),
@@ -96,34 +118,48 @@ int main (int argc, char const* argv[]) {
 		#ifndef LANGEVIN_OVERDAMPED
 		v = (vec2_t)vecO_t{				// n'a aucun impact, en tout cas à b=infini
 			.r = sqrt(2*T/part_m),
-			.θ = unif01(rng)*2*π
+			.θ = unif01(rng)*2*M_PI
 		};
 		#endif
 	};
+	reset_init();
 	#endif
 	init_pos();
+
+	#ifndef SPLIT_FILES
+	f_fd = ::open(fname_base.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
+	if (f_fd == -1) { ::perror("can't create xyc data file"); return 1; }
+	#endif
 	
 	while (continue_running) {
 		
 		if (step%1000000 == 0) {
 			fmt::print("t={:.3f}, {} resets\n", t, resets);
+			#ifdef SPLIT_FILES
 			if (f_fd != -1)
 				::close(f_fd);
 			f_fd = ::open(fmt::format(fname_format,f_num).c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
 			if (f_fd == -1) { ::perror("can't create xyc data file"); return 1; }
 			f_num++;
+			#endif
 		}
 		
 		// resetting
+		#ifdef RESET_WITH_TRAPPING
 		if (trapping) {
-			#ifdef RESET_WITH_TRAPPING
 			if (t > t_trap_end) {
 				trapping = false;
 				reset_init();
 			}
-			#endif
-		} else {
+		} else
+		#endif
+		{
 			if (reset_do()) {
+				#ifndef RESET_WITH_TRAPPING
+				x = { NaN, NaN };
+				::write(f_fd, &x, 2*sizeof(double));
+				reset_init();
+				#endif
 				init_pos();
 				resets++;
 			}
@@ -144,7 +180,9 @@ int main (int argc, char const* argv[]) {
 		x = x + v * Δt;
 		
 		::write(f_fd, &x, 2*sizeof(double));
+		#ifdef RESET_WITH_TRAPPING
 		::write(f_fd, &trapping, 1);
+		#endif
 		
 		t += Δt;
 		step++;
@@ -164,7 +202,8 @@ int main (int argc, char const* argv[]) {
 	#endif
 	fmt::print("--------------------------\n\n");
 	
-	#ifdef ENABLE_PERIODICAL_RESET
+	// For use in `exp-data-diffus-analysis.ipynb`
+	#if defined(ENABLE_PERIODICAL_RESET) && defined(SPLIT_FILES) && defined(RESET_WITH_TRAPPING)
 	fmt::print("name = '{}'\n", fname_base);
 	fmt::print("N = (1,{})\n", f_num-1);
 	fmt::print("fps = {:.2f}\n", 1/Δt);
@@ -177,6 +216,17 @@ int main (int argc, char const* argv[]) {
 	#endif
 	#endif
 	
+	// For use directly in langevin-ft-automated.ipynb
+	#if !defined(RESET_WITH_TRAPPING) && !defined(SPLIT_FILES)
+	fmt::print("N_traj,{}\n", resets);
+	fmt::print("sigma_x,{}\n", init_pos_sigma);
+	fmt::print("sigma_y,{}\n", init_pos_sigma);
+	fmt::print("D,{}\n", T/γ);
+	fmt::print("D_err,{}\n", 0);
+	fmt::print("fps,{}\n", 1/Δt);
+	fmt::print("reset_period,{}\n", reset_period);
+	#endif
+
 	::close(f_fd);
 
 	return 0;
