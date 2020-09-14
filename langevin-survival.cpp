@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
 
 constexpr size_t N_targets = 10;
 const size_t pysimul_N = N_targets;
@@ -134,7 +135,19 @@ void* comp_thread (void* _data) {
 		::puts("successfully opened trajectory file");
 	}
 	void* faddr_curr = faddr_base;
+	auto file_read_point = [&] () -> const pt2_t& {
+		int8_t* faddr_next = (int8_t*)faddr_curr + sizeof(double)*2;
+		if (faddr_next - (int8_t*)faddr_base >= fsize) 
+			throw std::out_of_range("end of file");
+		const pt2_t& x = *(const pt2_t*)faddr_curr;
+		faddr_curr = (void*)faddr_next;
+		return x;
+	};
+	auto file_close = [&] () {
+		::munmap(faddr_base, fsize);
+	};
 
+	try {
 	#endif
 	
 	while (not _thread.do_quit) {
@@ -180,6 +193,7 @@ void* comp_thread (void* _data) {
 		targets_reached.fill(false);
 
 		#ifndef INPUT_DATA_FILE
+
 		auto init_pos = [&] () -> void {
 			x = pt2_t{
 				.x = init_pos_sigma * normal_distrib_gen(rng),
@@ -193,6 +207,15 @@ void* comp_thread (void* _data) {
 			#endif
 		};
 		init_pos();
+
+		#else
+
+		// waiting for a reset
+		pt2_t x;
+		do {
+			x = file_read_point();
+		} while (not isnan(x.x));
+
 		#endif
 		
 		#ifdef ENABLE_PERIODICAL_RESET
@@ -235,15 +258,11 @@ void* comp_thread (void* _data) {
 
 			#else
 
-			int8_t* faddr_next = (int8_t*)faddr_curr + sizeof(double)*2;
-			if (faddr_next - (int8_t*)faddr_base >= fsize) 
-				goto data_exhausted;
-			const pt2_t& x = *(const pt2_t*)faddr_curr;
-			faddr_curr = (void*)faddr_next;
+			pt2_t x = file_read_point();
 
 			if (isnan(x.x)) { // reset point, skipped but must be took into account for FPT_JUMP_ACROSS
-				last_x = (*(const pt2_t*)faddr_next).x;  // it is safe to assume that a reset point is not the last point
-				continue;
+				x = file_read_point();
+				last_x = x.x;
 			}
 
 			#endif
@@ -354,13 +373,14 @@ void* comp_thread (void* _data) {
 	}
 
 	#ifdef INPUT_DATA_FILE
-	data_exhausted:
-	::puts("data exhausted");
-	pysimul_mutex_unlock(&_thread);
-	pause = 1;
-	::munmap(faddr_base, fsize);
-	while (not _thread.do_quit) 
-		::usleep(1000000);
+	} catch (std::out_of_range&) {
+		::puts("data exhausted");
+		pysimul_mutex_unlock(&_thread);
+		pause = 1;
+		file_close();
+		while (not _thread.do_quit) 
+			::usleep(1000000);
+	}
 	#endif
 
 	return nullptr;
