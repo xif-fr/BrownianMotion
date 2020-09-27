@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // This is the boiled-down version of langevin-survival.cpp with the following flags :
-// LANGEVIN_OVERDAMPED, TARGET_2D_CYL, FPT_INTERVAL, ENABLE_POISSON_RESET
+// LANGEVIN_OVERDAMPED, TARGET_2D_CYL, FPT_INTERVAL
 
 constexpr size_t N_targets = 1;
 const size_t pysimul_N = N_targets;
