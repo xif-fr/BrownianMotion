@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-//#define LANGEVIN_OVERDAMPED
+#define LANGEVIN_OVERDAMPED
 #define ENABLE_PERIODICAL_RESET
 //#define RESET_WITH_TRAPPING
 //#define SPLIT_FILES
@@ -31,7 +31,7 @@
 / `langevin-survival.cpp` with INPUT_DATA_FILE enabled when ideal resetting. If SPLIT_FILES is
 / enabled, a sequence of small (~20MB) files is saved, containing successive x and y positions
 / and a byte indicating if the trapping well is active (x0,y0,trapping0,y1,y1,trapping1,...),
-/ ready to be used by `exp-data-diffus-analysis.ipynb`.
+/ ready to be used by `exp-data-diffus-analysis.ipynb` when optical trap resetting.
 / ********************************************************************************************/
 
 #include <signal.h>
@@ -68,7 +68,7 @@ int main (int argc, char const* argv[]) {
 	constexpr double T = 1;
 	
 	std::random_device _rd;
-	std::mt19937 rng (_rd());
+	std::mt19937 rng (_rd()); // or set any seed you want
 	std::normal_distribution<> normal_distrib_gen (0, 1); // mean, std
 	std::uniform_real_distribution<> unif01 (0, 1);
 	
@@ -130,6 +130,10 @@ int main (int argc, char const* argv[]) {
 	f_fd = ::open(fname_base.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
 	if (f_fd == -1) { ::perror("can't create xyc data file"); return 1; }
 	#endif
+	auto f_write_reset = [&] () {
+		pt2_t xNaN = { NaN, NaN };
+		::write(f_fd, &xNaN, 2*sizeof(double));
+	};
 	
 	while (continue_running) {
 		
@@ -141,6 +145,10 @@ int main (int argc, char const* argv[]) {
 			f_fd = ::open(fmt::format(fname_format,f_num).c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
 			if (f_fd == -1) { ::perror("can't create xyc data file"); return 1; }
 			f_num++;
+			#endif
+			#ifndef RESET_WITH_TRAPPING
+			if (step == 0)  // init ≡ first reset
+				f_write_reset();
 			#endif
 		}
 		
@@ -156,8 +164,7 @@ int main (int argc, char const* argv[]) {
 		{
 			if (reset_do()) {
 				#ifndef RESET_WITH_TRAPPING
-				x = { NaN, NaN };
-				::write(f_fd, &x, 2*sizeof(double));
+				f_write_reset();
 				reset_init();
 				#endif
 				init_pos();

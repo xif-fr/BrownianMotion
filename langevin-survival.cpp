@@ -14,7 +14,10 @@ const size_t pysimul_N = N_targets;
 #define FPT_JUMP_ACROSS
 //#define FPT_INTERVAL
 #define ENABLE_PERIODICAL_RESET
-#define INPUT_DATA_FILE
+//#define INPUT_DATA_FILE
+
+// transformation from 2D coordinates to 1D to use for the 1D target (usually just x.x)
+#define POS1D(point) (point.x)
 
 #ifdef INPUT_DATA_FILE
 #include <sys/mman.h>
@@ -63,7 +66,7 @@ void* comp_thread (void* _data) {
 	// First passage time at the target @ x=survdist_time_pos
 	#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL) || defined(FPT_DEMISPACE)
 	std::array<std::vector<double>,N_targets> first_times;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2 };//{ 0.0888888, 0.10, 0.12, 0.16 };
+	constexpr std::array<double, N_targets> first_times_xtarg = { 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20 };
 	constexpr double xtarg_tol = 0.001;
 	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	for (size_t i = 0; i < N_targets; i++) {
@@ -188,7 +191,7 @@ void* comp_thread (void* _data) {
 		survdist_survived.fill(true);
 		#endif
 		
-		double last_x;
+		pt2_t last_x;
 		std::array<bool,N_targets> targets_reached;
 		targets_reached.fill(false);
 
@@ -230,47 +233,50 @@ void* comp_thread (void* _data) {
 			
 			#ifndef INPUT_DATA_FILE
 
-			// resetting
-			#ifdef ENABLE_POISSON_RESET
-			if (unif01(rng) < proba_reset_step) {
-				init_pos();
-			}
-			#endif
-			#ifdef ENABLE_PERIODICAL_RESET
-			if (t > reset_period*n_period) {
-				init_pos();
-				n_period++;
-			}
-			#endif
-			last_x = x.x;
-			
-			// Langevin equation implementation
-			vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
-			#ifndef LANGEVIN_OVERDAMPED
-			vec2_t a = -γ*v + f_alea;
-			#else
-			vec2_t v = f_alea / γ;
-			#endif
-			#ifndef LANGEVIN_OVERDAMPED
-			v += a / part_m * Δt;
-			#endif
-			x = x + v * Δt; // Δx ~= sqrt(D.Δt), 1e-3 for D=1 and Δt=1e-6
+				// resetting
+				#ifdef ENABLE_POISSON_RESET
+				if (unif01(rng) < proba_reset_step) {
+					init_pos();
+				}
+				#endif
+				#ifdef ENABLE_PERIODICAL_RESET
+				if (t > reset_period*n_period) {
+					init_pos();
+					n_period++;
+				}
+				#endif
+				last_x = x;
+				
+				// Langevin equation implementation
+				vec2_t f_alea = sqrt(2 * γ * T / Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
+				#ifndef LANGEVIN_OVERDAMPED
+				vec2_t a = -γ*v + f_alea;
+				#else
+				vec2_t v = f_alea / γ;
+				#endif
+				#ifndef LANGEVIN_OVERDAMPED
+				v += a / part_m * Δt;
+				#endif
+				x = x + v * Δt; // Δx ~= sqrt(D.Δt), 1e-3 for D=1 and Δt=1e-6
 
 			#else
 
-			pt2_t x = file_read_point();
-
-			if (isnan(x.x)) { // reset point, skipped but must be took into account for FPT_JUMP_ACROSS
+				last_x = x;
 				x = file_read_point();
-				last_x = x.x;
-			}
+				if (isnan(last_x.x))
+					last_x = x;
+
+				if (isnan(x.x)) { // reset point, skipped but must be took into account for FPT_JUMP_ACROSS
+					x = file_read_point();
+					last_x = x;
+				}
 
 			#endif
 			
 			// record x position reached
 			#if defined(ENABLE_SURVIVAL_PROBABILITIES_DEMISPACE) || defined(FPT_DEMISPACE)
-			if (x.x > max_x_reached) {
-				max_x_reached = x.x;
+			if (POS1D(x) > max_x_reached) {
+				max_x_reached = POS1D(x);
 				#ifdef FPT_DEMISPACE
 				if (max_x_reached >= first_times_xtarg[target_reached] and target_reached < N_targets) {
 					first_times[target_reached].push_back(t);
@@ -285,13 +291,13 @@ void* comp_thread (void* _data) {
 			for (uint8_t i = 0; i < N_targets; i++) {
 				if (not targets_reached[i]) {
 					#ifdef FPT_JUMP_ACROSS
-						bool a = x.x < first_times_xtarg[i];
-						bool b = first_times_xtarg[i] < last_x;
+						bool a = POS1D(x) < first_times_xtarg[i];
+						bool b = first_times_xtarg[i] < POS1D(last_x);
 						bool target = (a and b) or (not a and not b);
 					#endif
 					#ifdef FPT_INTERVAL
 						#ifndef TARGET_2D_CYL
-						bool target = std::abs(x.x - first_times_xtarg[i]) < xtarg_tol;
+						bool target = std::abs(POS1D(x) - first_times_xtarg[i]) < xtarg_tol;
 						#else
 						bool target = !(x - pt2_t{ first_times_xtarg[i], 0 }) < Rtol*Rtol;
 						#endif
@@ -309,14 +315,14 @@ void* comp_thread (void* _data) {
 			// keeping track of reached targets for survival distributions
 			constexpr double dx = survdist_max_x/survdist_Ndx;
 			#ifdef TARGET_2D_CYL
-			int64_t x_k_inf = std::max<int64_t>( std::floor( (x.x-Rtol) / dx ), 0 );
-			int64_t x_k_sup = std::min<int64_t>( std::floor( (x.x+Rtol) / dx ), survdist_Ndx );
+			int64_t x_k_inf = std::max<int64_t>( std::floor( (POS1D(x)-Rtol) / dx ), 0 );
+			int64_t x_k_sup = std::min<int64_t>( std::floor( (POS1D(x)+Rtol) / dx ), survdist_Ndx );
 			for (int64_t x_k = x_k_inf; x_k < x_k_sup; x_k++) {
 				if (!(x - pt2_t{ x_k*dx, 0 }) < Rtol*Rtol)
 					survdist_survived[x_k] = false;
 			}
 			#else
-			int64_t x_k = std::floor( x.x / dx );
+			int64_t x_k = std::floor( POS1D(x) / dx );
 			if (x_k >= 0 and x_k < survdist_Ndx)
 				survdist_survived[x_k] = false;
 			#endif
@@ -364,7 +370,6 @@ void* comp_thread (void* _data) {
 			
 			#endif
 
-			last_x = x.x;
 			t += Δt;
 			step++;
 		}
