@@ -194,7 +194,7 @@ def fpt_periodic_disrib (t, rT, b, c):
 		return c * (1/sqrt(2*π))**(k+1) * int_exp_erf(b,c)**k * prefact_dt_erf(k,t) * int_exp_dterf(b,c,k,t)
 
 def fpt_2d_periodical_tau (b, c, a, do_warn_err=False, use_cache=None):
-	if use_cache is not None and np.ndim(c) == 1 and np.isscalar(a) and np.isscalar(b):
+	if use_cache is not None and np.isscalar(a) and np.isscalar(b):
 		import pandas as pd
 		import scipy.interpolate
 		df = pd.read_csv(use_cache+"a{:.4f}_b{:.4f}".format(a,b), sep=',')

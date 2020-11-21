@@ -1,20 +1,29 @@
 #include <fmt/core.h>
 #include "pysimul-common.h"
+#include <math.h>
 #include <random>
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
-
-constexpr size_t N_targets = 10;
-const size_t pysimul_N = N_targets;
+#include "vecs2.hpp"
+#include <unistd.h>
 
 #define LANGEVIN_OVERDAMPED
-//#define TARGET_2D_CYL
+#define TARGET_2D_CYL
 //#define ENABLE_SURVIVAL_PROBABILITIES_INTERVAL
-#define FPT_JUMP_ACROSS
-//#define FPT_INTERVAL
+//#define FPT_JUMP_ACROSS
+#define FPT_INTERVAL
 #define ENABLE_PERIODICAL_RESET
-//#define INPUT_DATA_FILE
+#define XTARG_ONE_VARIABLE // for langevin-ft-automated-automated.ipynb
+#define INPUT_DATA_FILE
+
+#ifdef XTARG_ONE_VARIABLE
+constexpr size_t N_targets = 1;
+const size_t pysimul_N = 0;
+#else
+constexpr size_t N_targets = 10;
+const size_t pysimul_N = N_targets;
+#endif
 
 // transformation from 2D coordinates to 1D to use for the 1D target (usually just x.x)
 #define POS1D(point) (point.x)
@@ -66,15 +75,26 @@ void* comp_thread (void* _data) {
 	// First passage time at the target @ x=survdist_time_pos
 	#if defined(FPT_JUMP_ACROSS) || defined(FPT_INTERVAL) || defined(FPT_DEMISPACE)
 	std::array<std::vector<double>,N_targets> first_times;
+	// 
+	// Only run-time-parametrizable target (for langevin-ft-automated-automated.ipynb) :
+	#ifdef XTARG_ONE_VARIABLE
+	std::array<double, N_targets> first_times_xtarg = { 0.1 };
+	_register_var(_thread, "first_times_xtarg", &first_times_xtarg[0]);
+	_register_var(_thread, "first_times", &first_times[0]);
+	// 
+	// Multiple fixed targets (langevin-ft-automated.ipynb) :
+	#else
 	constexpr std::array<double, N_targets> first_times_xtarg = { 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20 };
-	constexpr double xtarg_tol = 0.001;
-	_register_const(_thread, "xtarg_tol", xtarg_tol);
+	auto _first_times_xtarg = first_times_xtarg;
+	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
 	for (size_t i = 0; i < N_targets; i++) {
 		auto s = fmt::format("first_times-{}", i);
 		_register_var(_thread, s.c_str(), &first_times[i]);
 	}
-	auto _first_times_xtarg = first_times_xtarg;
-	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
+	#endif
+	// For 1D : size of the target (in theory 0, in practice must be small but non-zero for FPT_JUMP_ACROSS or FPT_INTERVAL) :
+	constexpr double xtarg_tol = 0.001;
+	_register_const(_thread, "xtarg_tol", xtarg_tol);
 	#endif
 	
 	double t = 0;
