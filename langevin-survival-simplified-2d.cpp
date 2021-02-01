@@ -1,14 +1,15 @@
-#include <fmt/core.h>
 #include "pysimul-common.h"
 #include <random>
 #include <vector>
 #include <algorithm>
+#include "vecs2.hpp"
+#include <unistd.h>
 
 // This is the boiled-down version of langevin-survival.cpp with the following flags :
 // LANGEVIN_OVERDAMPED, TARGET_2D_CYL, FPT_INTERVAL
+// Additionally supports anisotropic initial position distribution
 
-constexpr size_t N_targets = 1;
-const size_t pysimul_N = N_targets;
+const size_t pysimul_N = 0;
 
 void* comp_thread (void* _data) {
 	simul_thread_info_t& _thread = *(simul_thread_info_t*)_data;
@@ -29,11 +30,13 @@ void* comp_thread (void* _data) {
 	// Diffusion
 	double D;
 	_register_var(_thread, "D", &D);
+	const double Ɣ = sqrt(2 * D * Δt);
 
 	// Gaussian distribution of initial position
-	double init_pos_sigma;
-	_register_var(_thread, "x0sigma", &init_pos_sigma);
-	
+	double init_pos_sigma_x = 0., init_pos_sigma_y = 0.;
+	_register_var(_thread, "x0sigma_x", &init_pos_sigma_x);
+	_register_var(_thread, "x0sigma_y", &init_pos_sigma_y);
+
 	#define ENABLE_PERIODICAL_RESET
 
 	// Poissonian resetting
@@ -49,18 +52,17 @@ void* comp_thread (void* _data) {
 	_register_var(_thread, "reset_period", &reset_period);
 	#endif
 
-	// First passage time at the target @ x=survdist_time_pos
-	std::vector<double> first_time;
-	constexpr std::array<double, N_targets> first_times_xtarg = { 0.2 };
-	_register_var(_thread, "first_times-0", &first_time);
-	auto _first_times_xtarg = first_times_xtarg;
-	_register_Narray(_thread, "first_times_xtarg", _first_times_xtarg);
+	// First passage time at the target
+	std::vector<double> first_times;
+	double xtarg;
+	_register_var(_thread, "xtarg", &xtarg);
+	_register_var(_thread, "first_times", &first_times);
 
 	// 2D circular target with "tolerence radius" Rtol around x=x_targ,y=0
 	double Rtol;
 	_register_var(_thread, "2D-Rtol", &Rtol);
-	auto check_is_in_target = [&Rtol,&first_times_xtarg] (pt2_t x) -> bool {
-		return !(x - pt2_t{ first_times_xtarg[0], 0 }) < Rtol*Rtol;
+	auto check_is_in_target = [&Rtol,&xtarg] (pt2_t x) -> bool {
+		return !(x - pt2_t{ xtarg, 0 }) < Rtol*Rtol;
 	};
 
 	while (not _thread.do_quit) {
@@ -79,14 +81,11 @@ void* comp_thread (void* _data) {
 		#endif
 		
 		auto init_pos = [&] () -> void {
-			reinit:
 			x = pt2_t{
-				.x = init_pos_sigma * normal_distrib_gen(rng),
-				.y = init_pos_sigma * normal_distrib_gen(rng)
+				.x = init_pos_sigma_x * normal_distrib_gen(rng),
+				.y = init_pos_sigma_y * normal_distrib_gen(rng)
 			};
-		//	if (check_is_in_target(x)) {	// we must not reinit the particle onto the target
-		//		goto reinit;
-		//	}
+			// note : the particle can be reinitialized on the target, we must not prevent that
 		};
 		init_pos();
 		
@@ -105,11 +104,11 @@ void* comp_thread (void* _data) {
 			#endif
 			
 			// Langevin equation implementation
-			x = x + sqrt(2 * D * Δt) * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
+			x = x + Ɣ * vec2_t{ .x = normal_distrib_gen(rng), .y = normal_distrib_gen(rng) };
 			
 			// target reached -> first passage time
 			if (check_is_in_target(x)) {
-				first_time.push_back(t); // register the FPT
+				first_times.push_back(t); // register the FPT
 				break;
 			}
 			

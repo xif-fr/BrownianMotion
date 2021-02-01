@@ -7,6 +7,18 @@ double rand01 () {
 	return ::rand()/(double)RAND_MAX;
 }
 
+template <typename float_t> void _register_var_float (simul_thread_info_t& _thread, const char* key, float_t* var) {
+	decltype(simul_thread_info_t::vars_pre_init)::iterator it;
+	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end()) {
+		if (it->second.first == 8) 
+			*var = *(int64_t*)(it->second.second);
+		else if (it->second.first == simul_thread_info_t::VAR_DOUBLE)
+			*var = *(double*)(it->second.second);
+		// todo : delete and remove entry
+	}
+	_thread.vars.insert({key, {simul_thread_info_t::VAR_DOUBLE, var}});
+}
+
 template<> void _register_var<double> (simul_thread_info_t& _thread, const char* key, double* var) {
 	decltype(simul_thread_info_t::vars_pre_init)::iterator it;
 	if ((it = _thread.vars_pre_init.find(key)) != _thread.vars_pre_init.end()) {
@@ -17,6 +29,9 @@ template<> void _register_var<double> (simul_thread_info_t& _thread, const char*
 		// todo : delete and remove entry
 	}
 	_thread.vars.insert({key, {simul_thread_info_t::VAR_DOUBLE, var}});
+}
+template<> void _register_var<float> (simul_thread_info_t& _thread, const char* key, float* var) {
+	// TODO
 }
 
 template<> void _register_var<std::string> (simul_thread_info_t& _thread, const char* key, std::string* var) {
@@ -46,6 +61,9 @@ int main (int argc, char const* argv[]) {
 	comp_thread(_thread);
 	return 0;
 }
+
+void pysimul_mutex_lock (simul_thread_info_t* _thread) {}
+void pysimul_mutex_unlock (simul_thread_info_t* _thread) {}
 
 #else
 

@@ -1,23 +1,15 @@
 #include <utility>
-#include <math.h>
-double rand01 ();
-#include <limits>
-#define π M_PI
-#define Inf std::numeric_limits<double>::infinity()
-#define NaN std::numeric_limits<double>::signaling_NaN()
 #include <inttypes.h>
-#include "vecs2.hpp"
 #include <vector>
 #include <array>
 #include <map>
 #include <string>
 #include <pthread.h>
 #include <queue>
-#include <unistd.h>
+#include <functional>
 
 #ifndef SIMUL_HEADLESS
 #include <SFML/Graphics.hpp>
-#include "sfml_c01.hpp"
 #endif
 
 extern const size_t pysimul_N;
@@ -63,12 +55,13 @@ template <typename number_t> void _register_var (simul_thread_info_t& _thread, c
 		if (it->second.first == 8) 
 			*var = (number_t)(*(int64_t*)(it->second.second));
 		else if (it->second.first == simul_thread_info_t::VAR_DOUBLE)
-			*var = (number_t)::lround(*(double*)(it->second.second));
+			*var = (number_t)(*(double*)(it->second.second));
 		// todo : delete and remove entry
 	}
 	_thread.vars.insert({key, {(simul_thread_info_t::var_type_t)sizeof(number_t), var}});
 }
 template<> void _register_var<double> (simul_thread_info_t& _thread, const char* key, double* var);
+template<> void _register_var<float> (simul_thread_info_t& _thread, const char* key, float* var);
 template<> void _register_var<std::vector<double>> (simul_thread_info_t& _thread, const char* key, std::vector<double>* var);
 template<> void _register_var<std::string> (simul_thread_info_t& _thread, const char* key, std::string* var);
 
